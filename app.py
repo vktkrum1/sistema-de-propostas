@@ -60,6 +60,11 @@ def create_app():
     def index():
         return redirect(url_for("propostas_bp.nova_proposta"))
 
+    @app.route("/tickets/dashboard")
+    @login_required
+    def tickets_dashboard():
+        return redirect(url_for("propostas_bp.nova_proposta"))
+
     # Cria admin padrão se sua função existir
     try:
         from blueprints.auth import criar_admin_padrao  # noqa
