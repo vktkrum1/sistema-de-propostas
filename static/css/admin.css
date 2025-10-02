@@ -1,0 +1,56 @@
+/* static/css/admin.css */
+
+body {
+  background-color: #f7f9fb;
+}
+
+h1, h2, h3 {
+  color: #005ea6;
+  font-weight: 600;
+}
+
+.table thead {
+  background-color: #005ea6;
+  color: #fff;
+}
+
+.table tbody tr:hover {
+  background-color: #f1f1f1;
+}
+
+.btn-primary {
+  background-color: #005ea6;
+  border-color: #005ea6;
+}
+
+.btn-primary:hover {
+  background-color: #004b87;
+  border-color: #004b87;
+}
+
+.card {
+  border-radius: 12px;
+  border: 1px solid #dfe3e8;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.card-header {
+  background-color: #e6f2fb;
+  color: #005ea6;
+  font-weight: 500;
+}
+
+.form-label {
+  font-weight: 500;
+  color: #333;
+}
+
+input.form-control, select.form-select {
+  border-radius: 8px;
+  border: 1px solid #cfd8dc;
+}
+
+input.form-control:focus, select.form-select:focus {
+  border-color: #005ea6;
+  box-shadow: 0 0 0 0.2rem rgba(0,94,166,0.2);
+}

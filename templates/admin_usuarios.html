@@ -1,0 +1,170 @@
+{% extends "layout.html" %}
+{% block title %}Gerenciar Usuários{% endblock %}
+
+{% block content %}
+<h1>Gerenciar Usuários</h1>
+
+<form method="post" class="mb-4">
+  {{ form.csrf_token }}
+
+  <div class="row g-3 align-items-center">
+    <div class="col-md-2">
+      {{ form.usuario.label(class="form-label") }}
+      {{ form.usuario(class="form-control") }}
+    </div>
+    <div class="col-md-3">
+      {{ form.nome_completo.label(class="form-label") }}
+      {{ form.nome_completo(class="form-control") }}
+    </div>
+    <div class="col-md-3">
+      {{ form.email.label(class="form-label") }}
+      {{ form.email(class="form-control") }}
+    </div>
+    <div class="col-md-2">
+      {{ form.tipo.label(class="form-label") }}
+      {{ form.tipo(class="form-select") }}
+    </div>
+    <div class="col-md-2">
+      {{ form.prox_num.label(class="form-label") }}   {# ← NOVO #}
+      {{ form.prox_num(class="form-control") }}
+    </div>
+    <div class="col-md-2">
+      {{ form.senha.label(class="form-label") }}
+      {{ form.senha(class="form-control") }}
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <button type="submit" class="btn btn-success w-100">Adicionar Usuário</button>
+    </div>
+  </div>
+</form>
+
+<hr>
+
+<h2 class="mt-4">Usuários Cadastrados</h2>
+<table class="table table-striped mt-3">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Usuário</th>
+      <th>Nome</th>
+      <th>Email</th>
+      <th>Tipo</th>
+      <th>Próx. Nº</th>              {# ← NOVO #}
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for usuario in usuarios %}
+      <tr>
+        <td>{{ usuario.id }}</td>
+        <td>{{ usuario.usuario }}</td>
+        <td>{{ usuario.nome_completo }}</td>
+        <td>{{ usuario.email }}</td>
+        <td>{{ usuario.tipo }}</td>
+        <td>{{ usuario.prox_num }}</td>   {# ← NOVO #}
+        <td class="d-flex gap-2">
+          <button class="btn btn-warning btn-sm w-100"
+                  onclick="abrirModalEdicaoUsuario({{ usuario.id }})">Editar</button>
+
+          <form method="post"
+                action="{{ url_for('auth_bp.excluir_usuario', id=usuario.id) }}"
+                class="w-100">
+            {{ form.csrf_token }}
+            <button type="submit"
+                    class="btn btn-danger btn-sm w-100"
+                    onclick="return confirm('Tem certeza que deseja excluir este usuário?');">
+              Excluir
+            </button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Modal de Edição de Usuário -->
+<div class="modal fade" id="modalEdicaoUsuario" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="formEdicaoUsuario">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar Usuário</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="usuario_id" name="id">
+
+          <div class="mb-3">
+            <label class="form-label">Usuário</label>
+            <input type="text" class="form-control" id="edit_usuario" name="usuario" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nome Completo</label>
+            <input type="text" class="form-control" id="edit_nome_completo" name="nome_completo">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" id="edit_email" name="email">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tipo</label>
+            <select class="form-select" id="edit_tipo" name="tipo">
+              <option value="admin">Administrador</option>
+              <option value="gestor">Gestor</option>
+              <option value="usuario">Usuário Normal</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Próximo Nº de Proposta</label>     {# ← NOVO #}
+            <input type="number" min="1" class="form-control" id="edit_prox_num" name="prox_num">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nova Senha (opcional)</label>
+            <input type="password" class="form-control" id="edit_senha" name="senha">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function abrirModalEdicaoUsuario(id) {
+  fetch(`/auth/editar_usuario/${id}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) { alert(data.error); return; }
+
+      document.getElementById('usuario_id').value         = data.id;
+      document.getElementById('edit_usuario').value       = data.usuario;
+      document.getElementById('edit_nome_completo').value = data.nome_completo;
+      document.getElementById('edit_email').value         = data.email;
+      document.getElementById('edit_tipo').value          = data.tipo;
+      document.getElementById('edit_prox_num').value      = data.prox_num;  // ← NOVO
+      document.getElementById('edit_senha').value         = "";
+
+      new bootstrap.Modal('#modalEdicaoUsuario').show();
+    });
+}
+
+document.getElementById('formEdicaoUsuario').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const id = document.getElementById('usuario_id').value;
+
+  fetch(`/auth/editar_usuario/${id}`, {
+    method : 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body   : new URLSearchParams(new FormData(this))
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) location.reload();
+    else alert("Erro ao salvar alterações.");
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+{% block title %}Gerenciar Parâmetros{% endblock %}
+
+{% block content %}
+<h1>Parâmetros da Proposta</h1>
+
+{# --------------------------------------------------------------------- #
+   Mapeamento: Enum ➜ Rótulo amigável (o mesmo que aparece em Nova Proposta)
+# --------------------------------------------------------------------- #}
+{% set friendly = {
+  'PAGTO_EQUIP'  : 'Condições de Pagamento (Equipamento)',
+  'PRAZO_ENTREGA': 'Prazo de Entrega',
+  'FRETE'        : 'Frete',
+  'VALIDADE'     : 'Validade da Proposta',
+  'GARANTIA_EQ'  : 'Garantia do Equipamento',
+  'GARANTIA_SYS' : 'Garantia do Sistema'
+} %}
+
+{# ----------------------  Formulário “Novo valor”  ------------------ #}
+<form method="POST" class="mb-4">
+  {{ form.csrf_token }}
+  <div class="row g-2">
+    <div class="col-md-4">
+
+      {# ——— Select reconstruído com rótulos amigáveis ——— #}
+      <label for="category" class="form-label">Categoria</label>
+      <select id="category" name="category" class="form-select">
+        {% for enum_name, label in friendly.items() %}
+          <option value="{{ enum_name }}"
+                  {% if form.category.data == enum_name %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+
+    </div>
+    <div class="col-md-6">
+      {{ form.label.label(class="form-label") }}
+      {{ form.label(class="form-control", placeholder="Ex.: 30 dias") }}
+    </div>
+    <div class="col-md-2 d-grid">
+      {{ form.submit(class="btn btn-primary mt-4") }}
+    </div>
+  </div>
+</form>
+
+{# ----------------------------- Tabela ------------------------------ #}
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Categoria</th><th>Valor</th><th>Criado por</th><th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in parametros %}
+    <tr>
+      <td>{{ friendly[p.category.name] }}</td>
+      <td>{{ p.label }}</td>
+      <td>{{ p.created_by.nome_completo if p.created_by else '-' }}</td>
+      <td>
+        <form method="POST"
+              action="{{ url_for('parametros_bp.deletar_parametro', id=p.id) }}"
+              onsubmit="return confirm('Excluir {{ p.label }}?')">
+          {{ form.csrf_token }}
+          <button class="btn btn-sm btn-danger">Excluir</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

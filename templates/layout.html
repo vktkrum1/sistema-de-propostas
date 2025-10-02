@@ -1,0 +1,340 @@
+<!-- templates/layout.html -->
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}Sistema de Propostas{% endblock %}</title>
+
+  <!-- Fonts / CSS base -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+
+  {% block head %}{% endblock %}
+
+  <style>
+    :root{
+      --nav-h:56px; --side-w:260px;
+      --blue-900:#0B3B8C; --blue-700:#0E5DC6;
+      --bg:#f6f8fb; --card:#fff; --text:#0f172a; --muted:#55607a;
+    }
+    html[data-theme="dark"]{
+      --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#9aa4b2;
+      --blue-900:#0B3B8C; --blue-700:#0E5DC6;
+    }
+    body{
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+      background:var(--bg); color:var(--text);
+      padding-top:var(--nav-h); margin:0; overflow-x:hidden;
+      min-height:100dvh; display:flex; flex-direction:column;
+    }
+    main.content{ flex:1 0 auto; }
+    .site-footer{ flex-shrink:0; }
+
+    /* NAVBAR */
+    .navbar-sollus{
+      height:var(--nav-h);
+      background:linear-gradient(90deg,var(--blue-900),var(--blue-700));
+      box-shadow:0 2px 10px rgba(0,0,0,.12);
+    }
+    .user-pill{ color:#fff; display:flex; align-items:center; gap:.5rem; font-weight:600; }
+    .user-avatar{
+      width:28px;height:28px;border-radius:50%;
+      display:inline-grid;place-items:center;background:rgba(255,255,255,.2);
+      font-size:.8rem;
+    }
+
+    /* SIDEBAR */
+    .sidebar{
+      position: fixed; top: var(--nav-h); left: 0; bottom: 0;
+      width: var(--side-w); background: var(--card);
+      border-right:1px solid rgba(16,24,40,.08);
+      box-shadow: 2px 0 20px rgba(2,8,23,.06);
+      padding:.25rem .75rem .75rem;
+      transition: width .25s ease;
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+    .sidebar .scroll{ overflow-y:auto; overflow-x:hidden; padding-right:.25rem; }
+    .nav-group{ margin:.75rem 0 .25rem; color:var(--muted); font-size:.8rem; text-transform:uppercase; font-weight:700;}
+    .nav-link{
+      color:var(--text); border-radius:.6rem; margin:.25rem 0; display:flex; align-items:center; gap:.6rem; padding:.5rem .75rem;
+    }
+    .nav-link i{ width:1.25rem; text-align:center; opacity:.9; }
+    .nav-link.active, .nav-link:hover{ background: rgba(14,93,198,.1); color:#0E5DC6; text-decoration:none; }
+
+    body.sidebar-collapsed .sidebar{ width:72px; }
+    body.sidebar-collapsed .sidebar .label{ display:none; }
+    body.sidebar-collapsed .sidebar .nav-group{ display:none; }
+
+    .content{ margin-left: var(--side-w); transition: margin-left .25s ease; }
+    body.sidebar-collapsed .content{ margin-left: 72px; }
+
+    /* Cards / tables */
+    .card{ background:var(--card); border:none; box-shadow:0 4px 20px rgba(2,8,23,.06); }
+    .table { --bs-table-bg: transparent; }
+
+    /* Flash area */
+    .flash-stack{ position:fixed; top: calc(var(--nav-h) + .75rem); right: .75rem; z-index: 1080; }
+
+    /* ===== Dark mode: form fields ===== */
+    html[data-theme="dark"] .form-control,
+    html[data-theme="dark"] .form-select,
+    html[data-theme="dark"] textarea,
+    html[data-theme="dark"] input[type="text"],
+    html[data-theme="dark"] input[type="email"],
+    html[data-theme="dark"] input[type="tel"],
+    html[data-theme="dark"] input[type="number"],
+    html[data-theme="dark"] input[type="password"]{
+      background-color:#1b2436 !important;
+      border-color:#2b364e !important;
+      color:#e8eefc !important;
+      caret-color:#e8eefc;
+    }
+    html[data-theme="dark"] .form-control::placeholder{
+      color:rgba(232,238,252,.65);
+    }
+    html[data-theme="dark"] .form-control:focus,
+    html[data-theme="dark"] .form-select:focus{
+      background-color:#1b2436 !important;
+      color:#e8eefc !important;
+      border-color:#3b82f6 !important;
+      box-shadow:0 0 0 .2rem rgba(59,130,246,.25) !important;
+    }
+    html[data-theme="dark"] .form-control:disabled,
+    html[data-theme="dark"] .form-select:disabled,
+    html[data-theme="dark"] .form-control[readonly]{
+      background-color:#162033 !important;
+      color:rgba(232,238,252,.7) !important;
+    }
+    html[data-theme="dark"] .form-select option{
+      background:#0f172a; color:#e8eefc;
+    }
+    html[data-theme="dark"] .input-group-text{
+      background:#162033; border-color:#2b364e; color:#e8eefc;
+    }
+    html[data-theme="dark"] .form-check-input{
+      background-color:#1b2436; border-color:#2b364e;
+    }
+    html[data-theme="dark"] .form-check-input:checked{
+      background-color:#3b82f6; border-color:#3b82f6;
+    }
+    html[data-theme="dark"] .form-control::file-selector-button{
+      background:#162033; color:#e8eefc; border-color:#2b364e;
+    }
+    html[data-theme="dark"] .modal-content{
+      background:#0f172a; color:#e8eefc; border-color:#1e293b;
+    }
+
+    /* ===== Dark mode: tabelas, cards, listas, dropdowns, textos ===== */
+    html[data-theme="dark"]{
+      --bs-body-bg: var(--bg);
+      --bs-body-color: var(--text);
+      --bs-border-color: #263248;
+      --bs-heading-color: var(--text);
+      color-scheme: dark;
+    }
+    /* TABELAS */
+    html[data-theme="dark"] .table{
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text);
+      --bs-table-striped-bg: rgba(255,255,255,.03);
+      --bs-table-striped-color: var(--text);
+      --bs-table-hover-bg: rgba(255,255,255,.05);
+      --bs-table-hover-color: var(--text);
+      --bs-table-border-color: #263248;
+      color: var(--text);
+    }
+    html[data-theme="dark"] .table th,
+    html[data-theme="dark"] .table td{
+      color: var(--text) !important;
+      border-color: #263248 !important;
+    }
+    html[data-theme="dark"] .table-light,
+    html[data-theme="dark"] .table thead.table-light th,
+    html[data-theme="dark"] .table thead.table-light td{
+      background-color:#111827 !important;
+      color: var(--text) !important;
+      border-color:#263248 !important;
+    }
+
+    /* LIST-GROUP */
+    html[data-theme="dark"] .list-group-item{
+      background:#0f172a !important;
+      color: var(--text) !important;
+      border-color:#263248 !important;
+    }
+
+    /* CARDS / HEADERS */
+    html[data-theme="dark"] .card,
+    html[data-theme="dark"] .card .card-header{
+      background:#0f172a !important;
+      color: var(--text) !important;
+      border-color:#1e293b !important;
+    }
+
+    /* DROPDOWNS */
+    html[data-theme="dark"] .dropdown-menu{ background:#0f172a; color:var(--text); border-color:#263248; }
+    html[data-theme="dark"] .dropdown-item{ color:var(--text); }
+    html[data-theme="dark"] .dropdown-item:hover{ background:rgba(255,255,255,.06); color:var(--text); }
+
+    /* Utilitárias que forçam dark no Bootstrap */
+    html[data-theme="dark"] .text-dark{ color: var(--text) !important; }
+    html[data-theme="dark"] .bg-light{ background:#0f172a !important; }
+    html[data-theme="dark"] .text-muted{ color:#cbd5e1 !important; }
+
+    /* Links mais claros no dark */
+    html[data-theme="dark"] a{ color:#93c5fd; }
+    html[data-theme="dark"] a:hover{ color:#bfdbfe; }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-dark fixed-top navbar-sollus">
+    <div class="container-fluid">
+      <button id="btnSidebarToggle" class="btn btn-outline-light me-2" type="button" aria-label="Abrir menu" title="Abrir menu">
+        <i id="btnSidebarToggleIcon" class="bi bi-layout-sidebar-inset"></i>
+      </button>
+
+      <a class="navbar-brand fw-bold" href="{{ url_for('propostas_bp.nova_proposta') }}">Propostas</a>
+
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <button id="btnThemeToggle" class="btn btn-outline-light btn-sm" type="button" title="Alternar tema">
+          <i id="themeIcon" class="bi bi-moon-stars"></i>
+        </button>
+        <span class="user-pill">
+          <span class="user-avatar">{{ (session.get('nome') or session.get('usuario') or 'U')[:2]|upper }}</span>
+          <span class="d-none d-sm-inline">{{ session.get('nome') or session.get('usuario') or 'Usuário' }}</span>
+        </span>
+        <a class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" href="{{ url_for('auth_bp.logout') }}">
+          <i class="bi bi-box-arrow-right"></i><span class="d-none d-sm-inline">Sair</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="scroll">
+      <div class="nav-group">Propostas</div>
+
+      <a class="nav-link {{ 'active' if request.endpoint=='propostas_bp.nova_proposta' else '' }}"
+         href="{{ url_for('propostas_bp.nova_proposta') }}">
+        <i class="fa-solid fa-file-circle-plus"></i>
+        <span class="label">Nova Proposta</span>
+      </a>
+
+      <a class="nav-link {{ 'active' if request.endpoint=='propostas_bp.historico_propostas' else '' }}"
+         href="{{ url_for('propostas_bp.historico_propostas') }}">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span class="label">Histórico</span>
+      </a>
+
+      <div class="nav-group">Cadastros</div>
+
+      <!-- Equipamentos (rota real) -->
+      <a class="nav-link {{ 'active' if request.blueprint=='equipamentos_bp' else '' }}"
+         href="{{ url_for('equipamentos_bp.cadastro_equipamentos') }}">
+        <i class="fa-solid fa-microchip"></i>
+        <span class="label">Equipamentos</span>
+      </a>
+
+      <!-- Parâmetros -->
+      <a class="nav-link {{ 'active' if request.blueprint=='parametros_bp' else '' }}"
+         href="{{ url_for('parametros_bp.listar_parametros') }}">
+        <i class="fa-solid fa-sliders"></i>
+        <span class="label">Parâmetros</span>
+      </a>
+
+      {% if session.get('tipo') in ['admin','gestor'] %}
+      <!-- Usuários (rota real) -->
+      <a class="nav-link {{ 'active' if request.endpoint in ['auth_bp.gerenciar_usuarios','auth_bp.editar_usuario'] else '' }}"
+         href="{{ url_for('auth_bp.gerenciar_usuarios') }}">
+        <i class="fa-solid fa-users-gear"></i>
+        <span class="label">Usuários</span>
+      </a>
+      {% endif %}
+    </div>
+
+    <div class="mt-auto p-2 small text-muted">
+      <div>v1.0</div>
+    </div>
+  </aside>
+
+  <!-- FLASH -->
+  <div class="flash-stack">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% if msgs %}
+        {% for cat, msg in msgs %}
+          <div class="alert alert-{{ 'warning' if cat=='message' else cat }} alert-dismissible fade show shadow-sm mb-2" role="alert">
+            {{ msg }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- CONTEÚDO -->
+  <main class="content">
+    <div class="container-fluid py-3">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer py-2" style="background:transparent;">
+    <div class="container-fluid d-flex align-items-center justify-content-between gap-2 flex-wrap">
+      <div><strong>Sollus</strong> • Sistema de Propostas</div>
+      <div>&copy; <span id="footerYear"></span></div>
+    </div>
+  </footer>
+
+  <!-- JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  (function(){
+    // Sidebar toggle
+    const key='sollus:sidebar-collapsed';
+    const body=document.body, btn=document.getElementById('btnSidebarToggle'), icon=document.getElementById('btnSidebarToggleIcon');
+    function isCollapsed(){ return body.classList.contains('sidebar-collapsed'); }
+    function setCollapsed(v){
+      body.classList.toggle('sidebar-collapsed', v);
+      localStorage.setItem(key, v ? '1' : '0');
+      if(icon) icon.className = v ? 'bi bi-layout-sidebar' : 'bi bi-layout-sidebar-inset';
+    }
+    setCollapsed(localStorage.getItem(key) === '1');
+    btn?.addEventListener('click', () => setCollapsed(!isCollapsed()));
+
+    // Ano do footer
+    document.getElementById('footerYear')?.append(new Date().getFullYear());
+
+    // Tema (toggle) com persistência — usa data-theme no <html>
+    const themeKey = 'sollus:theme';
+    const root = document.documentElement;
+    const btnTheme = document.getElementById('btnThemeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+
+    function applyTheme(t){
+      root.setAttribute('data-theme', t);
+      if(themeIcon){
+        themeIcon.className = t==='dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
+      }
+      localStorage.setItem(themeKey, t);
+    }
+    let saved = localStorage.getItem(themeKey);
+    if(!saved){
+      saved = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    applyTheme(saved);
+
+    btnTheme?.addEventListener('click', ()=>{
+      applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+  })();
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

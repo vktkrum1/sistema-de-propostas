@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sollus Tecnologia</title>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        body {
+            background-color: #e0f7fa;
+            background: linear-gradient(to right, #e0f7fa, #b2ebf2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            position: relative;
+        }
+
+        .container {
+            background-color: #fff;
+            border-radius: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.35);
+            overflow: hidden;
+            width: 768px;
+            max-width: 100%;
+            min-height: 480px;
+            display: flex;
+            flex-direction: row;
+        }
+
+        .login-section, .register-section {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-section {
+            background-color: #fff;
+        }
+
+        .register-section {
+            background-color: #005ea6;
+            color: white;
+            border-radius: 0 30px 30px 0;
+        }
+
+        .login-section img {
+            width: 180px;
+            margin-bottom: 20px;
+        }
+
+        .messages {
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        .messages ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            color: red;
+            font-size: 14px;
+        }
+
+        .login-section form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container input {
+            background-color: #eee;
+            border: none;
+            margin: 8px 0;
+            padding: 10px 15px;
+            font-size: 13px;
+            border-radius: 8px;
+            width: 100%;
+            outline: none;
+        }
+
+        .btn-primary {
+            background-color: #005ea6;
+            color: #fff;
+            font-size: 12px;
+            padding: 10px 45px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        .login-section p, .register-section p {
+            font-size: 14px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .login-section h2, .register-section h2 {
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                min-height: auto;
+            }
+
+            .register-section {
+                border-radius: 0;
+                padding: 20px;
+            }
+
+            .login-section, .register-section {
+                padding: 20px;
+            }
+
+            .login-section img {
+                width: 100px;
+            }
+
+            .btn-primary {
+                padding: 10px 20px;
+                font-size: 10px;
+            }
+
+            .container input {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Seção de Login -->
+    <div class="login-section">
+        <img src="{{ url_for('static', filename='images/logoempresa.png') }}" alt="Logo Sollus Tecnologia">
+
+        <div class="messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <ul>
+                        {% for category, message in messages %}
+                            <li>{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <form id="login-form" method="POST" action="{{ url_for('auth_bp.login') }}">
+            <input type="text" name="usuario" placeholder="Usuário" required>
+            <input type="password" name="senha" placeholder="Senha" required>
+            <button type="submit" class="btn-primary">Entrar</button>
+        </form>
+    </div>
+
+    <!-- Seção Lateral -->
+    <div class="register-section">
+        <h2>Olá, usuário!</h2>
+        <p>Não possui um cadastro ainda?</p>
+        <p>Entre em contato com seu gestor para solicitar o acesso ao sistema.</p>
+    </div>
+</div>
+
+</body>
+</html>

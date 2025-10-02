@@ -1,0 +1,274 @@
+{% extends "layout.html" %}
+{% block title %}Nova Proposta{% endblock %}
+
+{% block content %}
+<h1>Nova Proposta</h1>
+
+<form id="novaPropostaForm" method="post" novalidate>
+  {{ form.csrf_token }}
+
+  <!-- ───────────── Dados do cliente ───────────── -->
+  <div class="mb-3">
+    {{ form.cnpj.label(class="form-label") }}
+    {{ form.cnpj(class="form-control", id="cnpj") }}
+  </div>
+  <div class="mb-3" id="divCompany" style="display:none;">
+    {{ form.company.label(class="form-label") }}
+    {{ form.company(class="form-control", id="company") }}
+  </div>
+  <div class="mb-3">
+    {{ form.client_name.label(class="form-label") }}
+    {{ form.client_name(class="form-control", id="client_name") }}
+  </div>
+  <div class="mb-3">
+    {{ form.email.label(class="form-label") }}
+    {{ form.email(class="form-control", id="email") }}
+  </div>
+  <div class="mb-3">
+    {{ form.telefone.label(class="form-label") }}
+    {{ form.telefone(class="form-control", id="telefone", placeholder="5521999999999") }}
+  </div>
+
+  <!-- ───────────── Tipo e Modalidade ───────────── -->
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      {{ form.servico_type.label(class="form-label") }}
+      {{ form.servico_type(class="form-select") }}
+    </div>
+    <div class="col-md-6 mb-3">
+      {{ form.modalidade_type.label(class="form-label") }}
+      {{ form.modalidade_type(class="form-select") }}
+    </div>
+  </div>
+
+  <!-- ───────────── Outro consultor ───────────── -->
+  <div class="mb-3">
+    {{ form.usar_outro_usuario.label(class="form-label") }}
+    {{ form.usar_outro_usuario(class="form-select", id="usar_outro") }}
+  </div>
+  <div class="mb-3" id="divOutroUsuario" style="display:none;">
+    {{ form.outro_usuario.label(class="form-label") }}
+    {{ form.outro_usuario(class="form-select") }}
+  </div>
+
+  <!-- ───────────── Equipamentos ───────────── -->
+  <div class="mb-3">
+    <label class="form-label" for="equipamento-select">Adicionar Equipamento</label>
+    <select id="equipamento-select" class="form-select">
+      <option value="">Selecione...</option>
+      {% for eq in equipments %}
+        <option value="{{ eq.id }}" data-nome="{{ eq.name }}">{{ eq.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div id="equipamentos-selecionados" class="mb-4"></div>
+
+  <!-- ───────────── Parâmetros Dinâmicos ───────────── -->
+  {% macro select_or_other(field, other_id) -%}
+    <div class="col-md-6 mb-3">
+      {{ field.label(class="form-label") }}
+      {{ field(class="form-select param-select", id=other_id ~ '_select') }}
+      <input type="text" name="{{ other_id }}" id="{{ other_id }}"
+             class="form-control mt-2 d-none" placeholder="Especifique">
+    </div>
+  {%- endmacro %}
+  <div class="row">
+    {{ select_or_other(form.pagto_equip,'pagto_equip_other') }}
+    {{ select_or_other(form.prazo_entrega,'prazo_entrega_other') }}
+    {{ select_or_other(form.frete,'frete_other') }}
+    {{ select_or_other(form.validade,'validade_other') }}
+    {{ select_or_other(form.garantia_eq,'garantia_eq_other') }}
+    {{ select_or_other(form.garantia_sys,'garantia_sys_other') }}
+  </div>
+
+  <!-- ───────────── Botões ───────────── -->
+  <div class="mb-3 d-flex gap-3">
+    <button id="btnBaixar" type="button" class="btn btn-primary">Baixar Proposta</button>
+    <button id="btnVisualizar" type="submit" name="acao" value="visualizar"
+            class="btn btn-secondary" formtarget="_blank">
+      Visualizar Proposta
+    </button>
+  </div>
+
+  <input type="hidden" id="acaoHidden" name="acao" value="">
+</form>
+
+<!-- MODAL: Gerando Proposta -->
+<div class="modal fade" id="gerandoModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-4 text-center">
+      <div class="spinner-border" role="status" aria-hidden="true"></div>
+      <h5 class="mt-3 mb-2">Gerando sua proposta...</h5>
+      <div class="progress" style="height:8px;">
+        <div id="gerandoProgress" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div>
+      </div>
+      <small class="text-muted d-block mt-2">Isso pode levar alguns segundos.</small>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// ===================== Helpers =====================
+function fmt(v){return v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+function br2f(s){return parseFloat(s.replace(/\./g,'').replace(',','.'))||0;}
+function getPreco(id){return fetch(`/equipamentos/${id}`).then(r=>r.json()).then(d=>parseFloat(d.preco));}
+
+// Auto-completar telefone com +55 se faltar DDI
+function normalizeTelefone(inputEl){
+  if(!inputEl) return;
+  let raw = (inputEl.value || '').trim();
+  if(!raw) return;
+
+  const digits = raw.replace(/\D/g,'');
+  // já tem + e começa com 55 -> deixa
+  if(raw.startsWith('+') && digits.startsWith('55')) return;
+  // já começa com 55 sem + -> adiciona o +
+  if(digits.startsWith('55') && digits.length >= 12){
+    inputEl.value = '+' + digits;
+    return;
+  }
+  // número BR sem DDI (10 ou 11 dígitos), remove zero inicial (prefixo de operadora) se existir
+  let d = digits.replace(/^0+/, '');
+  if(d.length === 10 || d.length === 11){
+    inputEl.value = '+55' + d;
+    return;
+  }
+  // fallback: se tiver pelo menos 12 dígitos mas não começar com 55, só prefixa com +
+  if(digits.length >= 12 && !raw.startsWith('+')){
+    inputEl.value = '+' + digits;
+  }
+}
+
+// ===================== DOM Ready =====================
+document.addEventListener('DOMContentLoaded',()=>{
+  // Outro consultor
+  const usarOutro=document.getElementById('usar_outro');
+  const divOutro=document.getElementById('divOutroUsuario');
+  function toggleOutro(){divOutro.style.display=usarOutro.value==='sim'?'block':'none'}
+  usarOutro.addEventListener('change',toggleOutro);toggleOutro();
+
+  // Selects com "Outros"
+  document.querySelectorAll('.param-select').forEach(sel=>sel.addEventListener('change',function(){
+    const other=document.getElementById(this.id.replace('_select',''));other.classList.toggle('d-none',this.value!=='outros');
+  }));
+
+  // CNPJ API fill
+  const cnpj=document.getElementById('cnpj');
+  const divCompany=document.getElementById('divCompany');
+  const company=document.getElementById('company');
+  cnpj.addEventListener('input',()=>{divCompany.style.display='none';company.value='';});
+  cnpj.addEventListener('blur',()=>{
+    const c=cnpj.value.replace(/\D/g,'');
+    if(c.length!==14) return;
+    fetch(`/api/cnpj/${c}`).then(r=>r.json()).then(d=>{
+      if(d.company){company.value=d.company;divCompany.style.display='block';}
+      if(d.email) document.getElementById('email').value=d.email;
+      if(d.telefone) document.getElementById('telefone').value=d.telefone;
+    });
+  });
+
+  // Telefone: normalizar quando sair do campo
+  const tel = document.getElementById('telefone');
+  tel.addEventListener('blur',()=>normalizeTelefone(tel));
+
+  // Equipamentos dinâmica
+  const sel=document.getElementById('equipamento-select');
+  const cont=document.getElementById('equipamentos-selecionados');
+  sel.addEventListener('change',()=>{
+    const opt=sel.options[sel.selectedIndex];
+    const id=opt.value;
+    const nome=opt.dataset.nome;
+    if(!id) return;
+    if(document.getElementById(`equip_${id}`)){alert('Já adicionado');return;}
+    const row=document.createElement('div');
+    row.id=`equip_${id}`;
+    row.className='mb-2';
+    row.innerHTML=`<input type='hidden' name='equipments' value='${id}'>
+<strong>${nome}</strong> Qtd:<input type='number' name='quantity_${id}' value='1' min='1' class='form-control d-inline-block' style='width:80px' onchange='recalcular("${id}")'>
+<label class='ms-2'><input type='checkbox' id='chk_desc_${id}' onchange='togglePct("${id}")'> Desconto?</label>
+<span id='wrap_pct_${id}' class='d-none'><input type='number' id='pct_${id}' name='discount_${id}' class='form-control d-inline-block' style='width:90px' placeholder='%' oninput='recalcular("${id}")'> %</span>
+<label class='ms-2'><input type='checkbox' id='chk_preco_${id}' onchange='togglePreco("${id}")'> Preço?</label>
+<span id='wrap_manual_${id}' class='d-none'><input type='text' id='manual_${id}' name='price_${id}' class='form-control d-inline-block' style='width:110px' placeholder='R$ 0,00' oninput='recalcular("${id}")'></span>
+<small class='ms-3'>R$ <span id='p_cheio_${id}'>0,00</span> | <span id='p_desc_${id}'>0,00</span></small>
+<button type='button' class='btn btn-sm btn-danger ms-2' onclick='this.parentElement.remove()'>Remover</button>`;
+    cont.appendChild(row);
+    sel.selectedIndex=0;
+    getPreco(id).then(p=>{row.dataset.preco=p;document.getElementById(`p_cheio_${id}`).textContent=fmt(p);recalcular(id);});
+  });
+
+  // Funções globais usadas acima
+  window.togglePct = function(id){
+    document.getElementById(`wrap_pct_${id}`).classList.toggle('d-none',!document.getElementById(`chk_desc_${id}`).checked);
+    recalcular(id);
+  };
+  window.togglePreco = function(id){
+    document.getElementById(`wrap_manual_${id}`).classList.toggle('d-none',!document.getElementById(`chk_preco_${id}`).checked);
+    recalcular(id);
+  };
+  window.recalcular = function(id){
+    const row=document.getElementById(`equip_${id}`);
+    if(!row) return;
+    const qtd=parseFloat(row.querySelector(`[name='quantity_${id}']`).value)||1;
+    let preco=parseFloat(row.dataset.preco||0);
+    if(document.getElementById(`chk_preco_${id}`).checked) preco=br2f(document.getElementById(`manual_${id}`).value);
+    const pct=document.getElementById(`chk_desc_${id}`).checked?(parseFloat(document.getElementById(`pct_${id}`).value)||0):0;
+    const pd=preco*(1-pct/100);
+    document.getElementById(`p_cheio_${id}`).textContent=fmt(preco*qtd);
+    document.getElementById(`p_desc_${id}`).textContent=fmt(pd*qtd);
+  };
+
+  // Modal "Gerando proposta"
+  const gerarModalEl = document.getElementById('gerandoModal');
+  const gerarModal = new bootstrap.Modal(gerarModalEl, {backdrop:'static', keyboard:false});
+  const progressBar = document.getElementById('gerandoProgress');
+  let progressTimer=null, shouldReload=false;
+
+  function startProgress(){
+    progressBar.style.width='0%';
+    let w=0;
+    progressTimer = setInterval(()=>{
+      if(w<90){ w+=1; progressBar.style.width=w+'%'; }
+    },40);
+  }
+  function finishProgress(){
+    if(progressTimer) clearInterval(progressTimer);
+    progressBar.style.width='100%';
+  }
+
+  // Baixar
+  const btnBaixar=document.getElementById('btnBaixar');
+  const hidden=document.getElementById('acaoHidden');
+  btnBaixar.addEventListener('click',e=>{
+    e.preventDefault();
+    hidden.value='baixar';
+    gerarModal.show();
+    startProgress();
+    shouldReload=true;
+    setTimeout(()=>document.getElementById('novaPropostaForm').submit(),150);
+  });
+
+  // Visualizar (abre em nova aba)
+  const btnVisualizar=document.getElementById('btnVisualizar');
+  btnVisualizar.addEventListener('click',()=>{
+    gerarModal.show();
+    startProgress();
+    shouldReload=false; // só fechar ao voltar foco
+  });
+
+  // Ao voltar foco para a aba, encerra modal
+  window.addEventListener('focus',()=>{
+    finishProgress();
+    setTimeout(()=>{
+      gerarModal.hide();
+      if(shouldReload){
+        // opcional: recarregar para limpar formulário
+        window.location.href="{{ url_for('propostas_bp.nova_proposta') }}";
+      }
+    },250);
+  });
+});
+</script>
+{% endblock %}

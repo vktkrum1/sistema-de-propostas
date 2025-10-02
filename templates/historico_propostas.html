@@ -1,0 +1,553 @@
+{# templates/historico_propostas.html #}
+{% extends "layout.html" %}
+{% block title %}Histórico de Propostas{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Histórico de Propostas</h2>
+  <p>Bem-vindo(a), <strong>{{ session.get('nome') }}</strong></p>
+
+  {# ───────────── FILTROS ───────────── #}
+  <form class="row g-3 mt-3 mb-4" method="get"
+        action="{{ url_for('propostas_bp.historico_propostas') }}">
+    <div class="col-md-2">
+      <label class="form-label" for="data">Data</label>
+      <input type="date" id="data" name="data" class="form-control"
+             value="{{ date_sel }}">
+    </div>
+
+    {% if session.get('tipo') in ['admin', 'gestor'] %}
+    <div class="col-md-3">
+      <label class="form-label" for="usuario_id">Usuário</label>
+      <select id="usuario_id" name="usuario_id" class="form-select">
+        <option value="">Todos</option>
+        {% for u in usuarios_list %}
+          <option value="{{ u.id }}"
+                  {% if user_sel == u.id %}selected{% endif %}>
+            {{ u.nome_completo }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <div class="col-md-3">
+      <label class="form-label" for="servico_type">Serviço</label>
+      <select id="servico_type" name="servico_type" class="form-select">
+        <option value="">Todos</option>
+        {% for st in ServicoType %}
+          <option value="{{ st.name }}"
+                  {% if servico_sel == st.name %}selected{% endif %}>
+            {{ st.value }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label" for="modalidade_type">Modalidade</label>
+      <select id="modalidade_type" name="modalidade_type" class="form-select">
+        <option value="">Todas</option>
+        {% for mt in ModalidadeType %}
+          <option value="{{ mt.name }}"
+                  {% if modalidade_sel == mt.name %}selected{% endif %}>
+            {{ mt.value }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-1 align-self-end">
+      <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+    </div>
+    <div class="col-md-1 align-self-end">
+      <a href="{{ url_for('propostas_bp.historico_propostas') }}"
+         class="btn btn-secondary w-100">Limpar</a>
+    </div>
+  </form>
+
+  {# ───────────── TABELA ───────────── #}
+  {% if propostas.items %}
+  <table class="table table-bordered">
+    <thead class="table-light">
+      <tr>
+        <th>Nome da Proposta</th>
+        <th>Empresa</th>
+        <th>Cliente</th>
+        <th>Serviço</th>
+        <th>Modalidade</th>
+        <th>Criada em</th>
+        {% if session.get('tipo') in ['admin', 'gestor'] %}
+          <th>Criado por</th>
+        {% endif %}
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for proposta in propostas.items %}
+      <tr>
+        <td>{{ proposta.filename or '---' }}</td>
+        <td>{{ proposta.company }}</td>
+        <td>{{ proposta.client_name }}</td>
+        <td>{{ proposta.servico_type.value }}</td>
+        <td>{{ proposta.modalidade_type.value }}</td>
+        <td>
+          {% if proposta.data_criacao_local %}
+            {{ proposta.data_criacao_local.strftime('%d/%m/%Y %H:%M') }}
+          {% else %} --- {% endif %}
+        </td>
+        {% if session.get('tipo') in ['admin', 'gestor'] %}
+          <td>{{ proposta.usuario.nome_completo or proposta.usuario.usuario }}</td>
+        {% endif %}
+        <td>
+          <div class="d-flex gap-2 align-items-stretch">
+            <a href="{{ url_for('propostas_bp.download_proposta', id=proposta.id) }}"
+               class="btn btn-success btn-sm text-white px-3"
+               style="min-width:60px;height:45px;">PDF</a>
+
+            <button class="btn btn-warning btn-sm text-dark px-3"
+                    style="min-width:60px;height:45px;"
+                    onclick="abrirModalEdicao({{ proposta.id }})">
+              Editar
+            </button>
+
+            {% if session.get('tipo') in ['admin', 'gestor'] %}
+            <form method="post"
+                  action="{{ url_for('propostas_bp.excluir_proposta', id=proposta.id) }}"
+                  onsubmit="return confirm('Deseja realmente excluir esta proposta?')">
+              <button class="btn btn-danger btn-sm text-white px-3"
+                      style="min-width:60px;height:45px;">Excluir</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {# ───────────── PAGINAÇÃO ───────────── #}
+  <nav aria-label="Paginação">
+    <ul class="pagination">
+      {% if propostas.has_prev %}
+        <li class="page-item">
+          <a class="page-link"
+             href="{{ url_for('propostas_bp.historico_propostas',
+                              page=propostas.prev_num,
+                              data=date_sel, usuario_id=user_sel,
+                              servico_type=servico_sel,
+                              modalidade_type=modalidade_sel) }}">
+            Anterior
+          </a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+      {% endif %}
+
+      <li class="page-item disabled">
+        <span class="page-link">Página {{ propostas.page }} de {{ propostas.pages }}</span>
+      </li>
+
+      {% if propostas.has_next %}
+        <li class="page-item">
+          <a class="page-link"
+             href="{{ url_for('propostas_bp.historico_propostas',
+                              page=propostas.next_num,
+                              data=date_sel, usuario_id=user_sel,
+                              servico_type=servico_sel,
+                              modalidade_type=modalidade_sel) }}">
+            Próxima
+          </a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+
+  {% else %}
+    <div class="alert alert-info mt-4">Nenhuma proposta encontrada.</div>
+  {% endif %}
+</div>
+
+{# MODAL DE EDIÇÃO #}
+<div class="modal fade" id="modalEdicao" tabindex="-1" aria-labelledby="modalEdicaoLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div id="erro-edicao-modal" class="alert alert-danger d-none m-3"></div>
+      <form id="formEdicao">
+        <input type="hidden" id="proposta_id" name="proposta_id">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalEdicaoLabel">Editar Proposta</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">CNPJ do Cliente</label>
+              <input type="text" class="form-control" id="cnpj" name="cnpj">
+            </div>
+            <div class="col-md-6 mb-3" id="divCompanyEdit">
+              <label class="form-label">Empresa</label>
+              <input type="text" class="form-control" id="company" name="company">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Pessoa de Contato</label>
+              <input type="text" class="form-control" id="client_name" name="client_name">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">E-mail</label>
+              <input type="email" class="form-control" id="email" name="email">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Telefone</label>
+              <input type="text" class="form-control" id="telefone" name="telefone" placeholder="+55DDDNÚMERO">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Tipo de Serviço</label>
+              <select class="form-select" id="servico_type" name="servico_type" required>
+                {% for st in ServicoType %}
+                <option value="{{ st.name }}">{{ st.value }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Modalidade</label>
+              <select class="form-select" id="modalidade_type" name="modalidade_type" required>
+                {% for mt in ModalidadeType %}
+                <option value="{{ mt.name }}">{{ mt.value }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            {# Parâmetros dinâmicos #}
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Condições de Pagamento (Equipamento)</label>
+              <select class="form-select param-select-edit" id="pagto_equip_edit" name="pagto_equip">
+                <option value="">-- Selecione --</option>
+                {% for o in ParamOption.query.filter_by(category=ParamCategory.PAGTO_EQUIP).order_by(ParamOption.label) %}
+                <option value="{{ o.label }}">{{ o.label }}</option>
+                {% endfor %}
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3 d-none" id="pagto_equip_other_edit_wrapper">
+              <label class="form-label">Condições de Pagamento (especifique)</label>
+              <input type="text" name="pagto_equip_other" id="pagto_equip_other_edit" class="form-control">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Prazo de Entrega</label>
+              <select class="form-select param-select-edit" id="prazo_entrega_edit" name="prazo_entrega">
+                <option value="">-- Selecione --</option>
+                {% for o in ParamOption.query.filter_by(category=ParamCategory.PRAZO_ENTREGA).order_by(ParamOption.label) %}
+                <option value="{{ o.label }}">{{ o.label }}</option>
+                {% endfor %}
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3 d-none" id="prazo_entrega_other_edit_wrapper">
+              <label class="form-label">Prazo de Entrega (especifique)</label>
+              <input type="text" name="prazo_entrega_other" id="prazo_entrega_other_edit" class="form-control">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Frete</label>
+              <select class="form-select param-select-edit" id="frete_edit" name="frete">
+                <option value="">-- Selecione --</option>
+                {% for o in ParamOption.query.filter_by(category=ParamCategory.FRETE).order_by(ParamOption.label) %}
+                <option value="{{ o.label }}">{{ o.label }}</option>
+                {% endfor %}
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3 d-none" id="frete_other_edit_wrapper">
+              <label class="form-label">Frete (especifique)</label>
+              <input type="text" name="frete_other" id="frete_other_edit" class="form-control">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Validade da Proposta</label>
+              <select class="form-select param-select-edit" id="validade_edit" name="validade">
+                <option value="">-- Selecione --</option>
+                {% for o in ParamOption.query.filter_by(category=ParamCategory.VALIDADE).order_by(ParamOption.label) %}
+                <option value="{{ o.label }}">{{ o.label }}</option>
+                {% endfor %}
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3 d-none" id="validade_other_edit_wrapper">
+              <label class="form-label">Validade (especifique)</label>
+              <input type="text" name="validade_other" id="validade_other_edit" class="form-control">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Garantia do Equipamento</label>
+              <select class="form-select param-select-edit" id="garantia_eq_edit" name="garantia_eq">
+                <option value="">-- Selecione --</option>
+                {% for o in ParamOption.query.filter_by(category=ParamCategory.GARANTIA_EQ).order_by(ParamOption.label) %}
+                <option value="{{ o.label }}">{{ o.label }}</option>
+                {% endfor %}
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3 d-none" id="garantia_eq_other_edit_wrapper">
+              <label class="form-label">Garantia do Equipamento (especifique)</label>
+              <input type="text" name="garantia_eq_other" id="garantia_eq_other_edit" class="form-control">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Garantia do Sistema</label>
+              <select class="form-select param-select-edit" id="garantia_sys_edit" name="garantia_sys">
+                <option value="">-- Selecione --</option>
+                {% for o in ParamOption.query.filter_by(category=ParamCategory.GARANTIA_SYS).order_by(ParamOption.label) %}
+                <option value="{{ o.label }}">{{ o.label }}</option>
+                {% endfor %}
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3 d-none" id="garantia_sys_other_edit_wrapper">
+              <label class="form-label">Garantia do Sistema (especifique)</label>
+              <input type="text" name="garantia_sys_other" id="garantia_sys_other_edit" class="form-control">
+            </div>
+          </div>
+
+          {# Bloco de equipamentos #}
+          <div class="mb-3">
+            <label for="equipamento-edit-select" class="form-label">Adicionar Equipamento</label>
+            <select id="equipamento-edit-select" class="form-select">
+              <option value="">Selecione um equipamento...</option>
+              {% for eq in equipments %}
+                <option value="{{ eq.id }}" data-nome="{{ eq.name }}">{{ eq.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="equipamentos-edit-selecionados" class="mb-4"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">Salvar Alterações</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Alternar campos "outros" =====
+function toggleOutroEdit(select){
+  const id = select.id.replace('_edit','');
+  const wrap = document.getElementById(id + '_other_edit_wrapper');
+  if(select.value === 'outros'){
+    wrap.classList.remove('d-none');
+  }else{
+    wrap.classList.add('d-none');
+    const other = document.getElementById(id + '_other_edit');
+    if(other) other.value = '';
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.param-select-edit')
+          .forEach(s => s.addEventListener('change', () => toggleOutroEdit(s)));
+});
+
+// ===== Helpers comuns =====
+function fmt(v){return v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+function br2f(s){return parseFloat(s.replace(/\./g,'').replace(',', '.'))||0;}
+function getPreco(id){return fetch(`/equipamentos/${id}`).then(r=>r.json()).then(d=>parseFloat(d.preco));}
+
+// Auto-completar telefone com +55 se faltar DDI (modal)
+function normalizeTelefone(inputEl){
+  if(!inputEl) return;
+  let raw = (inputEl.value || '').trim();
+  if(!raw) return;
+
+  const digits = raw.replace(/\D/g,'');
+  if(raw.startsWith('+') && digits.startsWith('55')) return;
+  if(digits.startsWith('55') && digits.length >= 12){
+    inputEl.value = '+' + digits; return;
+  }
+  let d = digits.replace(/^0+/, '');
+  if(d.length === 10 || d.length === 11){
+    inputEl.value = '+55' + d; return;
+  }
+  if(digits.length >= 12 && !raw.startsWith('+')){
+    inputEl.value = '+' + digits;
+  }
+}
+
+// ===== Equipamentos no modal de edição =====
+const selEquipEdit = document.getElementById('equipamento-edit-select');
+const containerEdit = document.getElementById('equipamentos-edit-selecionados');
+function recalcularEdit(id){
+  const row = document.getElementById(`equip_edit_${id}`);
+  const qtd = parseFloat(row.querySelector(`[name="quantity_${id}"]`).value)||1;
+  let preco = parseFloat(row.dataset.preco||0);
+  if(document.getElementById(`chk_preco_edit_${id}`).checked){
+    preco = br2f(document.getElementById(`manual_edit_${id}`).value);
+  }
+  const pct = document.getElementById(`chk_desc_edit_${id}`).checked ?
+              (parseFloat(document.getElementById(`pct_edit_${id}`).value)||0) : 0;
+  const precoDesc = preco*(1-pct/100);
+
+  document.getElementById(`p_cheio_edit_${id}`).textContent = fmt(preco*qtd);
+  document.getElementById(`p_desc_edit_${id}`).textContent  = fmt(precoDesc*qtd);
+}
+function togglePctEdit(id){
+  document.getElementById(`wrap_pct_edit_${id}`).classList.toggle('d-none',
+        !document.getElementById(`chk_desc_edit_${id}`).checked);
+  recalcularEdit(id);
+}
+function togglePrecoEdit(id){
+  document.getElementById(`wrap_manual_edit_${id}`).classList.toggle('d-none',
+        !document.getElementById(`chk_preco_edit_${id}`).checked);
+  recalcularEdit(id);
+}
+selEquipEdit.addEventListener('change', ()=>{
+  const opt = selEquipEdit.options[selEquipEdit.selectedIndex];
+  const id  = opt.value, nome = opt.dataset.nome;
+  if(!id) return;
+  if(document.getElementById(`equip_edit_${id}`)){
+    alert('Este equipamento já foi adicionado.'); return;
+  }
+  const row = document.createElement('div');
+  row.id = `equip_edit_${id}`;
+  row.className = 'mb-2';
+  row.innerHTML = `
+    <input type="hidden" name="equipments" value="${id}">
+    <strong>${nome}</strong>
+    &nbsp;Qtd:
+    <input type="number" name="quantity_${id}" value="1" min="1"
+           class="form-control d-inline-block" style="width:80px"
+           onchange="recalcularEdit('${id}')">
+    <label class="ms-2 me-1"><input type="checkbox" id="chk_desc_edit_${id}"
+           onchange="togglePctEdit('${id}')"> Desconto?</label>
+    <span id="wrap_pct_edit_${id}" class="d-none">
+      <input type="number" id="pct_edit_${id}" name="discount_${id}" placeholder="%"
+             class="form-control d-inline-block" style="width:90px"
+             min="0" max="100" step="0.01" oninput="recalcularEdit('${id}')"> %
+    </span>
+    <label class="ms-2 me-1"><input type="checkbox" id="chk_preco_edit_${id}"
+           onchange="togglePrecoEdit('${id}')"> Alterar preço?</label>
+    <span id="wrap_manual_edit_${id}" class="d-none">
+      <input type="text" id="manual_edit_${id}" name="price_${id}"
+             class="form-control d-inline-block" style="width:110px"
+             placeholder="R$ 0,00" oninput="recalcularEdit('${id}')">
+    </span>
+    <span class="ms-3">
+      <small>Preço: R$ <span id="p_cheio_edit_${id}">0,00</span> |
+             c/ desc.: R$ <span id="p_desc_edit_${id}">0,00</span></small>
+    </span>
+    <button type="button" class="btn btn-sm btn-danger ms-2"
+            onclick="this.parentElement.remove()">Remover</button>
+  `;
+  containerEdit.appendChild(row);
+  selEquipEdit.selectedIndex = 0;
+  getPreco(id).then(p=>{
+    row.dataset.preco = p;
+    document.getElementById(`p_cheio_edit_${id}`).textContent = fmt(p);
+    recalcularEdit(id);
+  });
+});
+
+// ===== Preencher o modal de edição (campos e equipamentos) =====
+function abrirModalEdicao(id) {
+  const erroDiv = document.getElementById('erro-edicao-modal');
+  if (erroDiv) erroDiv.classList.add('d-none');
+  fetch(`/editar_proposta/${id}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) { alert(data.error); return; }
+      // Campos simples
+      const campos = ['proposta_id','company','cnpj','client_name','email','telefone'];
+      campos.forEach(c=>{
+        const el = document.getElementById(c==='proposta_id'?'proposta_id':c);
+        if(el) el.value = (c==='proposta_id') ? (data.proposta_id || id) : (data[c]||'');
+      });
+
+      // Normalizar telefone quando sair do campo
+      const tel = document.getElementById('telefone');
+      tel.removeEventListener?.('__blur_norm__', tel.__blur_norm_handler);
+      tel.__blur_norm_handler = ()=>normalizeTelefone(tel);
+      tel.addEventListener('blur', tel.__blur_norm_handler);
+      tel.__blur_norm__ = true;
+
+      if (data.servico_type) document.getElementById('servico_type').value = data.servico_type;
+      if (data.modalidade_type) document.getElementById('modalidade_type').value = data.modalidade_type;
+
+      const din = ['pagto_equip','prazo_entrega','frete','validade','garantia_eq','garantia_sys'];
+      din.forEach(field => {
+        const sel = document.getElementById(field + '_edit');
+        const other = document.getElementById(field + '_other_edit');
+        if(!sel) return;
+        sel.value = data[field] || '';
+        toggleOutroEdit(sel);
+        if(data[field] === 'outros' && other) other.value = data[field+'_other'] || '';
+      });
+
+      // Equipamentos existentes
+      containerEdit.innerHTML = "";
+      (data.equipamentos || []).forEach(eq => {
+        const row = document.createElement('div');
+        row.id = `equip_edit_${eq.id}`;
+        row.className = 'mb-2';
+        row.innerHTML = `
+          <input type="hidden" name="equipments" value="${eq.id}">
+          <strong>${eq.name}</strong>
+          &nbsp;Qtd:
+          <input type="number" name="quantity_${eq.id}" value="${eq.quantity}" min="1"
+                 class="form-control d-inline-block" style="width:80px"
+                 onchange="recalcularEdit('${eq.id}')">
+          <label class="ms-2 me-1"><input type="checkbox" id="chk_desc_edit_${eq.id}"
+                 onchange="togglePctEdit('${eq.id}')" ${eq.discount_percent > 0 ? "checked" : ""}> Desconto?</label>
+          <span id="wrap_pct_edit_${eq.id}" class="${eq.discount_percent > 0 ? "" : "d-none"}">
+            <input type="number" id="pct_edit_${eq.id}" name="discount_${eq.id}" placeholder="%"
+                   class="form-control d-inline-block" style="width:90px"
+                   min="0" max="100" step="0.01" oninput="recalcularEdit('${eq.id}')" value="${eq.discount_percent}"> %
+          </span>
+          <label class="ms-2 me-1"><input type="checkbox" id="chk_preco_edit_${eq.id}"
+                 onchange="togglePrecoEdit('${eq.id}')"> Alterar preço?</label>
+          <span id="wrap_manual_edit_${eq.id}" class="d-none">
+            <input type="text" id="manual_edit_${eq.id}" name="price_${eq.id}"
+                   class="form-control d-inline-block" style="width:110px"
+                   placeholder="R$ 0,00" oninput="recalcularEdit('${eq.id}')" value="">
+          </span>
+          <span class="ms-3">
+            <small>Preço: R$ <span id="p_cheio_edit_${eq.id}">0,00</span> |
+                   c/ desc.: R$ <span id="p_desc_edit_${eq.id}">0,00</span></small>
+          </span>
+          <button type="button" class="btn btn-sm btn-danger ms-2"
+                  onclick="this.parentElement.remove()">Remover</button>
+        `;
+        containerEdit.appendChild(row);
+        getPreco(eq.id).then(p => {
+          row.dataset.preco = p;
+          document.getElementById(`p_cheio_edit_${eq.id}`).textContent = fmt(p * eq.quantity);
+          recalcularEdit(eq.id);
+        });
+      });
+
+      let modal = new bootstrap.Modal(document.getElementById('modalEdicao'));
+      modal.show();
+    });
+}
+
+document.getElementById('formEdicao').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const id = document.getElementById('proposta_id').value;
+  const erroDiv = document.getElementById('erro-edicao-modal');
+  if (erroDiv) erroDiv.classList.add('d-none');
+  fetch(`/editar_proposta/${id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(new FormData(this))
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      location.reload();
+    } else if (data.error) {
+      if (erroDiv) { erroDiv.innerText = data.error; erroDiv.classList.remove('d-none'); }
+      else { alert(data.error); }
+    } else {
+      alert('Erro ao salvar alterações.');
+    }
+  });
+});
+</script>
+{% endblock %}

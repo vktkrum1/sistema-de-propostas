@@ -1,0 +1,232 @@
+{% extends "layout.html" %}
+{% block title %}Cadastro de Equipamentos{% endblock %}
+
+{% block content %}
+<h1>Cadastro de Equipamentos</h1>
+
+<form method="POST" enctype="multipart/form-data">
+  {{ form.csrf_token }}
+
+  <div class="mb-3">
+    {{ form.name.label }}
+    {{ form.name(class="form-control") }}
+  </div>
+
+  <div class="mb-3">
+    {{ form.description.label }}
+    {{ form.description(class="form-control") }}
+  </div>
+
+  <div class="mb-3">
+    {{ form.illustration.label }}
+    {{ form.illustration(class="form-control", accept=".png,.jpg,.jpeg") }}
+    <div class="form-text">Formatos aceitos: PNG, JPG, JPEG. A imagem será redimensionada para 160×180 sem cortes.</div>
+  </div>
+
+  <div class="mb-3">
+    {{ form.unit_price.label }}
+    {{ form.unit_price(class="form-control", id="precoCadastro") }}
+  </div>
+
+  <div class="mb-3">
+    {{ form.quantity.label }}
+    {{ form.quantity(class="form-control") }}
+  </div>
+
+  <div class="mb-3">
+    {{ form.submit(class="btn btn-primary") }}
+  </div>
+</form>
+
+<hr>
+
+<h2 class="mt-5">Equipamentos Cadastrados</h2>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Nome</th>
+      <th>Descrição</th>
+      <th>Imagem</th>
+      <th>Preço Unitário</th>
+      <th>Qtd</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for eq in equipments %}
+    <tr>
+      <td>{{ eq.name }}</td>
+      <td style="white-space: pre-line;">{{ eq.description }}</td>
+      <td>
+        {% if eq.illustration_path %}
+          <img
+            src="{{ url_for('static', filename='images/' ~ eq.illustration_path.split('/')[-1]) }}"
+            alt="Imagem"
+            style="width:80px;height:90px;object-fit:contain;background:#f8f9fa;padding:4px;border-radius:6px">
+        {% else %}
+          <img src="{{ url_for('static', filename='images/sem-imagem.png') }}" alt="Sem Imagem" style="width:80px;">
+        {% endif %}
+      </td>
+      <td>R$ {{ '%.2f'|format(eq.unit_price)|replace('.', ',') }}</td>
+      <td>{{ eq.quantity }}</td>
+      <td>
+        <div class="d-flex gap-2 align-items-stretch">
+          <button class="btn btn-warning btn-sm text-dark d-flex align-items-center justify-content-center px-3"
+                  style="min-width: 100px; height: 40px;"
+                  onclick="abrirModalEdicao({{ eq.id }})">
+            Editar
+          </button>
+          <button class="btn btn-danger btn-sm text-white d-flex align-items-center justify-content-center px-3"
+                  style="min-width: 100px; height: 40px;"
+                  onclick="confirmarExclusao({{ eq.id }})">
+            Excluir
+          </button>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Modal de Edição de Equipamento -->
+<div class="modal fade" id="modalEdicaoEquipamento" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formEdicaoEquipamento" enctype="multipart/form-data" onsubmit="event.preventDefault(); salvarEdicaoEquipamento();">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Equipamento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="equipamentoId">
+        <div class="mb-3">
+          <label class="form-label">Nome</label>
+          <input type="text" id="equipamentoNome" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Descrição</label>
+          <textarea id="equipamentoDescricao" class="form-control"></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Imagem</label>
+          <input type="file" id="equipamentoImagem" class="form-control" accept=".png,.jpg,.jpeg">
+          <div class="form-text">Formatos aceitos: PNG, JPG, JPEG. A imagem será redimensionada para 160×180 sem cortes.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Preço Unitário</label>
+          <input type="text" id="equipamentoPreco" class="form-control" placeholder="Ex: 2.990,00">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Quantidade</label>
+          <input type="number" id="equipamentoQuantidade" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="modalConfirmarExclusao" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar Exclusão</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        Tem certeza que deseja excluir este equipamento?
+        <input type="hidden" id="equipamentoIdParaExcluir">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-danger" onclick="excluirEquipamento()">Excluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function formatarComoMoedaBR(valor) {
+    valor = valor.replace(/\D/g, "");
+    valor = valor.replace(/^0+/, '');
+    valor = valor.padStart(3, '0');
+    const reais = valor.slice(0, -2);
+    const centavos = valor.slice(-2);
+    const comPonto = reais.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return comPonto + "," + centavos;
+  }
+
+  function aplicarMascaraPreco(campo) {
+    if(!campo) return;
+    campo.addEventListener('input', function () {
+      this.value = formatarComoMoedaBR(this.value);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    aplicarMascaraPreco(document.getElementById('precoCadastro'));
+    aplicarMascaraPreco(document.getElementById('equipamentoPreco'));
+  });
+
+  function abrirModalEdicao(id) {
+    fetch(`/equipamentos/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('equipamentoId').value = data.id;
+        document.getElementById('equipamentoNome').value = data.nome;
+        document.getElementById('equipamentoDescricao').value = data.descricao || '';
+        document.getElementById('equipamentoPreco').value = (parseFloat(data.preco||0))
+          .toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+        document.getElementById('equipamentoQuantidade').value = data.quantidade;
+        document.getElementById('equipamentoImagem').value = '';
+
+        new bootstrap.Modal(document.getElementById('modalEdicaoEquipamento')).show();
+      });
+  }
+
+  function salvarEdicaoEquipamento() {
+    const id = document.getElementById('equipamentoId').value;
+
+    const payload = {
+      nome: document.getElementById('equipamentoNome').value,
+      descricao: document.getElementById('equipamentoDescricao').value,
+      preco: document.getElementById('equipamentoPreco').value,
+      quantidade: parseInt(document.getElementById('equipamentoQuantidade').value)
+    };
+
+    fetch(`/equipamentos/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(() => {
+      const imagem = document.getElementById('equipamentoImagem').files[0];
+      if (imagem) {
+        const formData = new FormData();
+        formData.append('imagem', imagem);
+        return fetch(`/equipamentos/${id}/upload_imagem`, { method: 'POST', body: formData });
+      }
+    })
+    .finally(() => location.reload());
+  }
+
+  function confirmarExclusao(id) {
+    document.getElementById('equipamentoIdParaExcluir').value = id;
+    new bootstrap.Modal(document.getElementById('modalConfirmarExclusao')).show();
+  }
+
+  function excluirEquipamento() {
+    const id = document.getElementById('equipamentoIdParaExcluir').value;
+    fetch(`/equipamentos/${id}`, { method: 'DELETE' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) location.reload();
+        else alert('Erro ao excluir equipamento.');
+      });
+  }
+</script>
+{% endblock %}
