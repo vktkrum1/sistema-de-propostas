@@ -34,25 +34,64 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 def _resolve_img_path(pth: str):
     """
     Resolve um caminho absoluto para a imagem do equipamento,
-    tentando algumas pastas comuns (CWD, BASE_DIR, BASE_DIR/static/images).
+    normalizando separadores e tentando algumas pastas comuns
+    (CWD, BASE_DIR, BASE_DIR/static[/images]).
     """
     if not pth:
         return None
 
-    # Se já for absoluto e existir, ok
-    if os.path.isabs(pth) and os.path.exists(pth):
-        return pth
+    text = str(pth).strip()
+    if not text:
+        return None
 
-    # Candidatos relativos
-    candidates = [
-        pth,
-        os.path.join(os.getcwd(), pth),
-        os.path.join(BASE_DIR, pth),
-        os.path.join(BASE_DIR, "static", "images", os.path.basename(pth)),
-    ]
-    for c in candidates:
-        if os.path.exists(c):
-            return c
+    # Se já for absoluto e existir, ok
+    if os.path.isabs(text) and os.path.exists(text):
+        return text
+
+    # Normaliza separadores vindos de Windows e remove prefixos redundantes
+    normalized = text.replace("\\", "/").lstrip("/")
+    parts = [p for p in normalized.split("/") if p and p not in (".", "..")]
+
+    trimmed = parts[:]
+    if trimmed and trimmed[0].lower() == "static":
+        trimmed = trimmed[1:]
+    if trimmed and trimmed[0].lower() == "images":
+        trimmed = trimmed[1:]
+
+    joined = os.path.join(*parts) if parts else ""
+    trimmed_joined = os.path.join(*trimmed) if trimmed else ""
+    basename = trimmed[-1] if trimmed else (parts[-1] if parts else "")
+
+    candidates = []
+    seen_rel = set()
+    for rel in (joined, trimmed_joined):
+        if not rel or rel in seen_rel:
+            continue
+        seen_rel.add(rel)
+        candidates.extend([
+            rel,
+            os.path.join(os.getcwd(), rel),
+            os.path.join(BASE_DIR, rel),
+        ])
+
+    if trimmed_joined:
+        candidates.extend([
+            os.path.join(BASE_DIR, "static", trimmed_joined),
+            os.path.join(BASE_DIR, "static", "images", trimmed_joined),
+        ])
+
+    if basename:
+        candidates.append(os.path.join(BASE_DIR, "static", "images", basename))
+
+    seen = set()
+    for candidate in candidates:
+        candidate_path = os.path.normpath(candidate)
+        if candidate_path in seen:
+            continue
+        seen.add(candidate_path)
+        if os.path.exists(candidate_path):
+            return os.path.abspath(candidate_path)
+
     return None
 
 
@@ -258,7 +297,7 @@ def gerar_proposta_docx(
         dados_topo = (
             f"{proposta.company} / {proposta.cnpj} / {proposta.client_name} / "
             f"{proposta.data_criacao.strftime('%d/%m/%Y') if proposta.data_criacao else ''}\n"
-            f"Telefone: {tel_raw}  EMAIL: {proposta.email}"
+            f"Telefone: {tel_raw}  E-mail: {proposta.email}"
         )
         condicoes = (
             "CONDIÇÕES COMERCIAIS:\n"
