@@ -2,8 +2,7 @@
 # ===========================================================
 #  IMPORTS E CONFIGURAÇÃO GERAL
 # ===========================================================
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from email.message import EmailMessage
 import re
 import smtplib
@@ -23,12 +22,10 @@ from models import (
 )
 from forms import ProposalForm, cnpj_valido
 from gerar_proposta import gerar_proposta_docx
+from utils.timezone import get_local_timezone
 import dns.resolver
 
-try:
-    LOCAL_TZ = ZoneInfo("America/Sao_Paulo")
-except ZoneInfoNotFoundError:
-    LOCAL_TZ = timezone(timedelta(hours=-3))
+LOCAL_TZ = get_local_timezone()
 
 # ===========================================================
 #  HELPERS
