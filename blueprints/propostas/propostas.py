@@ -2,11 +2,14 @@
 # ===========================================================
 #  IMPORTS E CONFIGURAÇÃO GERAL
 # ===========================================================
-from zoneinfo import ZoneInfo
 from datetime import datetime, timezone
+from email.message import EmailMessage
+import re
+import smtplib
+from typing import Sequence
 
 from flask import (
-    render_template, redirect, url_for, flash,
+    current_app, render_template, redirect, url_for, flash,
     request, session, jsonify, send_file
 )
 
@@ -19,9 +22,10 @@ from models import (
 )
 from forms import ProposalForm, cnpj_valido
 from gerar_proposta import gerar_proposta_docx
+from utils.timezone import get_local_timezone
 import dns.resolver
 
-LOCAL_TZ = ZoneInfo("America/Sao_Paulo")
+LOCAL_TZ = get_local_timezone()
 
 # ===========================================================
 #  HELPERS
@@ -67,6 +71,17 @@ def _dados_colaborador():
     return usr.nome_completo or "", usr.email or ""
 
 
+def _limpar_buffers_proposta():
+    for chave in (
+        "ultima_proposta_id",
+        "equipamentos_buffer",
+        "quantidades_buffer",
+        "descontos_buffer",
+        "precos_buffer",
+    ):
+        session.pop(chave, None)
+
+
 def _fill_selects(form: ProposalForm):
     def opts(cat):
         res = [("", "-- Selecione --")]
@@ -84,21 +99,115 @@ def _fill_selects(form: ProposalForm):
     form.garantia_sys.choices  = opts(ParamCategory.GARANTIA_SYS)
 
 
-def _gerar_e_enviar_pdf(proposta, equipamentos):
+def _gerar_pdf_stream(proposta, equipamentos):
     nome_colab, email_colab = _dados_colaborador()
     cod = proposta.filename.split()[-1]
-    output = gerar_proposta_docx(
+    return gerar_proposta_docx(
         proposta, equipamentos,
         formato="pdf",
         nome_colaborador=nome_colab,
         email_colaborador=email_colab,
         proposta_cod=cod,
     )
+
+
+def _gerar_e_enviar_pdf(proposta, equipamentos):
+    output = _gerar_pdf_stream(proposta, equipamentos)
     return send_file(
         output,
         download_name=f"{proposta.filename}.pdf",
         as_attachment=False,
     )
+
+
+EMAIL_SPLIT_RE = re.compile(r"[;,\n]+")
+
+
+def _parse_emails_list(raw: str) -> list[str]:
+    if not raw:
+        return []
+    emails: list[str] = []
+    for chunk in EMAIL_SPLIT_RE.split(raw):
+        addr = chunk.strip()
+        if not addr:
+            continue
+        if "@" not in addr or addr.startswith("@") or addr.endswith("@"):
+            raise ValueError(f"E-mail inválido: {addr}")
+        local, _, domain = addr.partition("@")
+        if not local or "." not in domain:
+            raise ValueError(f"E-mail inválido: {addr}")
+        emails.append(addr)
+    return emails
+
+
+def _enviar_email_proposta(
+    proposta: Proposal,
+    equipamentos: Sequence[Equipment],
+    corpo_email: str,
+    cc_list: Sequence[str],
+):
+    config = current_app.config
+    host = config.get("MAIL_SERVER") or config.get("EMAIL_SMTP_SERVER")
+    if not host:
+        raise RuntimeError("Configuração MAIL_SERVER ausente para envio de e-mail.")
+
+    sender = config.get("MAIL_SENDER") or config.get("MAIL_DEFAULT_SENDER")
+    if not sender:
+        raise RuntimeError("Configuração MAIL_SENDER ausente para envio de e-mail.")
+
+    use_ssl = bool(config.get("MAIL_USE_SSL", False))
+    use_tls = bool(config.get("MAIL_USE_TLS", not use_ssl))
+    port = config.get("MAIL_PORT")
+    if not port:
+        port = 465 if use_ssl else (587 if use_tls else 25)
+
+    username = config.get("MAIL_USERNAME")
+    password = config.get("MAIL_PASSWORD")
+
+    pdf_stream = _gerar_pdf_stream(proposta, equipamentos)
+    pdf_stream.seek(0)
+    attachment = pdf_stream.read()
+
+    msg = EmailMessage()
+    msg["Subject"] = proposta.filename or "Proposta Comercial"
+    msg["From"] = sender
+    msg["To"] = proposta.email
+    if cc_list:
+        msg["Cc"] = ", ".join(cc_list)
+    reply_to = config.get("MAIL_REPLY_TO")
+    if reply_to:
+        msg["Reply-To"] = reply_to
+
+    corpo = corpo_email.strip() or (
+        f"Olá {proposta.client_name},\n\n"
+        "Segue em anexo a proposta comercial referente ao nosso atendimento.\n\n"
+        "Fico à disposição para dúvidas."
+    )
+    msg.set_content(corpo)
+
+    msg.add_attachment(
+        attachment,
+        maintype="application",
+        subtype="pdf",
+        filename=f"{proposta.filename}.pdf",
+    )
+
+    if use_ssl:
+        server = smtplib.SMTP_SSL(host, port)
+    else:
+        server = smtplib.SMTP(host, port)
+
+    try:
+        if use_tls and not use_ssl:
+            server.starttls()
+        if username:
+            server.login(username, password or "")
+        server.send_message(msg)
+    finally:
+        try:
+            server.quit()
+        except Exception:
+            pass
 
 # ===========================================================
 #  NOVA PROPOSTA
@@ -126,6 +235,31 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
         email = form.email.data.strip()
         if not email_domain_has_mx(email):
             flash("Domínio de e-mail sem registro MX.", "danger")
+            return render_template(
+                "nova_proposta.html",
+                form=form,
+                equipments=equipamentos_disp,
+                form_data=request.form,
+            )
+
+        enviar_email = form.enviar_email.data
+        corpo_email = (form.email_corpo.data or "").strip()
+        enviar_copia = form.enviar_copia.data
+        cc_raw = (form.email_cc.data or "").strip() if enviar_copia else ""
+
+        if enviar_email and not corpo_email:
+            flash("Informe o conteúdo do e-mail para enviá-lo ao cliente.", "danger")
+            return render_template(
+                "nova_proposta.html",
+                form=form,
+                equipments=equipamentos_disp,
+                form_data=request.form,
+            )
+
+        try:
+            cc_list = _parse_emails_list(cc_raw) if enviar_email else []
+        except ValueError as exc:
+            flash(str(exc), "danger")
             return render_template(
                 "nova_proposta.html",
                 form=form,
@@ -169,6 +303,9 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
             modalidade_type=form.modalidade_type.data,
             usuario_id=user.id,
             filename=filename,
+            enviar_email=enviar_email,
+            email_corpo=corpo_email if enviar_email else "",
+            email_cc=cc_raw if enviar_email else "",
         )
         db.session.add(proposta)
         db.session.commit()  # garante ID para usar nos buffers
@@ -216,6 +353,21 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
             return redirect(url_for("propostas_bp.baixar_proposta"))
         if acao == "visualizar":
             return redirect(url_for("propostas_bp.visualizar_proposta"))
+        if acao == "enviar_email" and enviar_email:
+            try:
+                _enviar_email_proposta(proposta, eqs, corpo_email, cc_list)
+            except Exception as exc:
+                current_app.logger.exception("Falha ao enviar e-mail da proposta")
+                flash(f"Não foi possível enviar o e-mail: {exc}", "danger")
+                return render_template(
+                    "nova_proposta.html",
+                    form=form,
+                    equipments=equipamentos_disp,
+                    form_data=request.form,
+                )
+            _limpar_buffers_proposta()
+            flash("Proposta enviada por e-mail com sucesso.", "success")
+            return redirect(url_for("propostas_bp.nova_proposta"))
 
         flash("Proposta criada com sucesso.", "success")
         return redirect(url_for("propostas_bp.nova_proposta"))
@@ -250,14 +402,7 @@ def baixar_proposta():
     resp.headers["Content-Disposition"] = f'attachment; filename="{prop.filename}.pdf"'
 
     # Limpa buffers
-    for k in (
-        "ultima_proposta_id",
-        "equipamentos_buffer",
-        "quantidades_buffer",
-        "descontos_buffer",
-        "precos_buffer",
-    ):
-        session.pop(k, None)
+    _limpar_buffers_proposta()
     return resp
 
 
@@ -274,14 +419,7 @@ def visualizar_proposta():
     resp = _gerar_e_enviar_pdf(prop, eqs)
 
     # Limpa buffers
-    for k in (
-        "ultima_proposta_id",
-        "equipamentos_buffer",
-        "quantidades_buffer",
-        "descontos_buffer",
-        "precos_buffer",
-    ):
-        session.pop(k, None)
+    _limpar_buffers_proposta()
     return resp
 
 # ===========================================================
@@ -337,12 +475,19 @@ def editar_proposta(id):
             "garantia_sistema",
             "servico_type",
             "modalidade_type",
+            "enviar_email",
+            "email_corpo",
+            "email_cc",
         ]:
             valor = request.form.get(campo)
             if campo == "servico_type" and valor:
                 valor = ServicoType[valor]
-            if campo == "modalidade_type" and valor:
+            elif campo == "modalidade_type" and valor:
                 valor = ModalidadeType[valor]
+            elif campo == "enviar_email":
+                valor = valor in {"1", "true", "on", "yes"}
+            elif campo in {"email_corpo", "email_cc"} and valor is not None:
+                valor = valor.strip()
             setattr(prop, campo, valor)
 
         # --- Equipamentos: recria vínculos (sem usar .clear()) ---
@@ -394,6 +539,9 @@ def editar_proposta(id):
         garantia_sistema=prop.garantia_sistema,
         servico_type=prop.servico_type.name if prop.servico_type else "",
         modalidade_type=prop.modalidade_type.name if prop.modalidade_type else "",
+        enviar_email=prop.enviar_email,
+        email_corpo=prop.email_corpo,
+        email_cc=prop.email_cc,
         equipamentos=eq_list,
     )
 
