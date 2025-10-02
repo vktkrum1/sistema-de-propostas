@@ -1,6 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from enum import Enum
+from pathlib import PurePosixPath
+
+from sqlalchemy.ext.hybrid import hybrid_property
 
 # Inicializa o SQLAlchemy
 db = SQLAlchemy()
@@ -68,9 +71,44 @@ class Equipment(db.Model):
     id               = db.Column(db.Integer, primary_key=True)
     name             = db.Column(db.String(128))
     description      = db.Column(db.Text)
-    illustration_path= db.Column(db.String(256))
+    _illustration_path = db.Column('illustration_path', db.String(256))
     unit_price       = db.Column(db.Float)
     quantity         = db.Column(db.Integer)
+
+    @staticmethod
+    def _normalize_illustration_path(value):
+        """Remove prefixos redundantes e normaliza separadores."""
+        if value is None:
+            return None
+
+        text = str(value).strip()
+        if not text:
+            return None
+
+        path = PurePosixPath(text.replace("\\", "/").lstrip("/"))
+        parts = [p for p in path.parts if p not in ("", ".", "..")]
+
+        if parts and parts[0].lower() == "static":
+            parts = parts[1:]
+        if parts and parts[0].lower() == "images":
+            parts = parts[1:]
+
+        if not parts:
+            return None
+
+        return "/".join(parts)
+
+    @hybrid_property
+    def illustration_path(self):
+        return self._normalize_illustration_path(self._illustration_path)
+
+    @illustration_path.setter
+    def illustration_path(self, value):
+        self._illustration_path = self._normalize_illustration_path(value)
+
+    @illustration_path.expression
+    def illustration_path(cls):  # type: ignore[override]
+        return cls._illustration_path
 
 # ================
 #  Propostas
