@@ -258,7 +258,7 @@ def gerar_proposta_docx(
         dados_topo = (
             f"{proposta.company} / {proposta.cnpj} / {proposta.client_name} / "
             f"{proposta.data_criacao.strftime('%d/%m/%Y') if proposta.data_criacao else ''}\n"
-            f"Telefone: {tel_raw}  EMAIL: {proposta.email}"
+            f"Telefone: {tel_raw}  E-mail: {proposta.email}"
         )
         condicoes = (
             "CONDIÇÕES COMERCIAIS:\n"

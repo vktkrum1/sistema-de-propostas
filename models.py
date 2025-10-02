@@ -26,10 +26,13 @@ class ParamCategory(Enum):
 
 class ParamOption(db.Model):
     __tablename__ = "param_options"
+    __table_args__ = (
+        db.UniqueConstraint("category", "label", name="uq_param_options_category_label"),
+    )
 
     id            = db.Column(db.Integer, primary_key=True)
     category      = db.Column(db.Enum(ParamCategory), nullable=False)
-    label         = db.Column(db.String(120), nullable=False, unique=True)
+    label         = db.Column(db.String(120), nullable=False)
 
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     created_by    = db.relationship(
@@ -48,7 +51,7 @@ class User(db.Model):
     usuario       = db.Column(db.String(64), unique=True, nullable=False)
     nome_completo = db.Column(db.String(128))
     senha_hash    = db.Column(db.String(200), nullable=False)
-    tipo          = db.Column(db.String(20))    # administrador | gestor | usuario
+    tipo          = db.Column(db.String(20))    # admin | gestor | usuario
     email         = db.Column(db.String(128))
 
     prox_num      = db.Column(db.Integer, default=1)
