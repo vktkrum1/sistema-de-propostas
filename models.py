@@ -138,9 +138,13 @@ class Proposal(db.Model):
     validade         = db.Column(db.String(256))
     garantia         = db.Column(db.String(256))
     garantia_sistema = db.Column(db.String(256))
-    
+
     servico_type    = db.Column(db.Enum(ServicoType), nullable=False, default=ServicoType.PONTO)
     modalidade_type = db.Column(db.Enum(ModalidadeType), nullable=False, default=ModalidadeType.AQUISICAO)
+
+    enviar_email    = db.Column(db.Boolean, default=False)
+    email_corpo     = db.Column(db.Text)
+    email_cc        = db.Column(db.Text)
 
     data_criacao     = db.Column(db.DateTime, default=datetime.utcnow)
     usuario_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)

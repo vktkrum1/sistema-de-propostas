@@ -1,9 +1,11 @@
 from flask_wtf import FlaskForm
 from wtforms import (
     StringField, PasswordField, SelectField, SelectMultipleField,
-    TextAreaField, SubmitField, IntegerField
+    TextAreaField, SubmitField, IntegerField, BooleanField
 )
-from wtforms.validators import DataRequired, NumberRange, Email, ValidationError
+from wtforms.validators import (
+    DataRequired, NumberRange, Email, ValidationError, Optional
+)
 from flask_wtf.file import FileField, FileAllowed
 from models import ParamCategory, ServicoType, ModalidadeType
 
@@ -106,6 +108,11 @@ class ProposalForm(FlaskForm):
         validators=[DataRequired()],
         coerce=lambda v: ModalidadeType[v]
     )
+
+    enviar_email = BooleanField('Enviar e-mail para o cliente?')
+    email_corpo = TextAreaField('Conteúdo do e-mail', validators=[Optional()])
+    enviar_copia = BooleanField('Copiar outros e-mails?')
+    email_cc = TextAreaField('E-mails em cópia', validators=[Optional()])
 
     submit         = SubmitField('Gerar Proposta')
 

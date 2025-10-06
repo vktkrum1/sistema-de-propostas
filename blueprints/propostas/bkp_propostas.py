@@ -2,7 +2,6 @@
 # ===========================================================
 #  IMPORTS E CONFIGURAÇÃO GERAL
 # ===========================================================
-from zoneinfo import ZoneInfo
 from datetime import datetime, timezone
 
 from flask import (
@@ -19,9 +18,10 @@ from models import (
 )
 from forms import ProposalForm, cnpj_valido
 from gerar_proposta import gerar_proposta_docx
+from utils.timezone import get_local_timezone
 import dns.resolver
 
-LOCAL_TZ = ZoneInfo("America/Sao_Paulo")
+LOCAL_TZ = get_local_timezone()
 
 # ===========================================================
 #  HELPERS

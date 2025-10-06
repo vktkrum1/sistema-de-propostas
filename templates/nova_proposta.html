@@ -29,6 +29,26 @@
     {{ form.telefone(class="form-control", id="telefone", placeholder="5521999999999") }}
   </div>
 
+  <!-- ───────────── Envio de e-mail ───────────── -->
+  <div class="form-check form-switch mb-3">
+    {{ form.enviar_email(class="form-check-input", id="enviar_email") }}
+    {{ form.enviar_email.label(class="form-check-label", for="enviar_email") }}
+  </div>
+  <div id="emailOptions" class="border rounded-3 p-3 mb-4 d-none">
+    <div class="mb-3">
+      {{ form.email_corpo.label(class="form-label", for="email_corpo") }}
+      {{ form.email_corpo(class="form-control", id="email_corpo", rows="6", placeholder="Escreva aqui a mensagem que acompanhará a proposta") }}
+    </div>
+    <div class="form-check form-switch mb-3">
+      {{ form.enviar_copia(class="form-check-input", id="enviar_copia") }}
+      {{ form.enviar_copia.label(class="form-check-label", for="enviar_copia") }}
+    </div>
+    <div class="mb-3 d-none" id="emailCcWrapper">
+      {{ form.email_cc.label(class="form-label", for="email_cc") }}
+      {{ form.email_cc(class="form-control", id="email_cc", rows="3", placeholder="Informe um e-mail por linha ou separados por vírgula ou ponto e vírgula") }}
+    </div>
+  </div>
+
   <!-- ───────────── Tipo e Modalidade ───────────── -->
   <div class="row">
     <div class="col-md-6 mb-3">
@@ -83,7 +103,7 @@
 
   <!-- ───────────── Botões ───────────── -->
   <div class="mb-3 d-flex gap-3">
-    <button id="btnBaixar" type="button" class="btn btn-primary">Baixar Proposta</button>
+    <button id="btnAcaoPrimaria" type="button" class="btn btn-primary">Baixar Proposta</button>
     <button id="btnVisualizar" type="submit" name="acao" value="visualizar"
             class="btn btn-secondary" formtarget="_blank">
       Visualizar Proposta
@@ -144,11 +164,42 @@ function normalizeTelefone(inputEl){
 
 // ===================== DOM Ready =====================
 document.addEventListener('DOMContentLoaded',()=>{
+  const formEl=document.getElementById('novaPropostaForm');
   // Outro consultor
   const usarOutro=document.getElementById('usar_outro');
   const divOutro=document.getElementById('divOutroUsuario');
   function toggleOutro(){divOutro.style.display=usarOutro.value==='sim'?'block':'none'}
   usarOutro.addEventListener('change',toggleOutro);toggleOutro();
+
+  // Envio de e-mail
+  const chkEnviarEmail=document.getElementById('enviar_email');
+  const emailOptions=document.getElementById('emailOptions');
+  const chkEnviarCopia=document.getElementById('enviar_copia');
+  const emailCcWrapper=document.getElementById('emailCcWrapper');
+  const emailCc=document.getElementById('email_cc');
+  const btnPrimario=document.getElementById('btnAcaoPrimaria');
+
+  function toggleCc(){
+    const mostrar = chkEnviarEmail.checked && chkEnviarCopia.checked;
+    emailCcWrapper.classList.toggle('d-none', !mostrar);
+  }
+
+  function toggleEmailOptions(){
+    const ativo = chkEnviarEmail.checked;
+    emailOptions.classList.toggle('d-none', !ativo);
+    if(!ativo){
+      chkEnviarCopia.checked = false;
+    }
+    toggleCc();
+    btnPrimario.textContent = ativo ? 'Enviar e-mail com a proposta' : 'Baixar Proposta';
+  }
+
+  chkEnviarEmail.addEventListener('change',()=>{
+    toggleEmailOptions();
+  });
+  chkEnviarCopia.addEventListener('change',toggleCc);
+  toggleEmailOptions();
+  toggleCc();
 
   // Selects com "Outros"
   document.querySelectorAll('.param-select').forEach(sel=>sel.addEventListener('change',function(){
@@ -239,15 +290,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 
   // Baixar
-  const btnBaixar=document.getElementById('btnBaixar');
   const hidden=document.getElementById('acaoHidden');
-  btnBaixar.addEventListener('click',e=>{
+  btnPrimario.addEventListener('click',e=>{
     e.preventDefault();
-    hidden.value='baixar';
+    hidden.value = chkEnviarEmail.checked ? 'enviar_email' : 'baixar';
     gerarModal.show();
     startProgress();
     shouldReload=true;
-    setTimeout(()=>document.getElementById('novaPropostaForm').submit(),150);
+    setTimeout(()=>formEl.submit(),150);
   });
 
   // Visualizar (abre em nova aba)
