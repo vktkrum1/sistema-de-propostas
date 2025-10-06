@@ -1,6 +1,7 @@
 # app.py
 from flask import Flask, redirect, url_for
 from models import db
+from utils.schema import ensure_proposal_email_columns
 
 # Blueprints
 from blueprints.auth import auth_bp, login_required
@@ -39,6 +40,9 @@ def create_app():
 
     # DB
     db.init_app(app)
+
+    with app.app_context():
+        ensure_proposal_email_columns()
 
     # Flask-Migrate (opcional)
     try:
