@@ -59,6 +59,18 @@ def _preparar_equipamentos_para_proposta():
         eq.discount_percent = float(descontos.get(str(eid), 0))
         eq.unit_price       = float(precos.get(str(eid), eq.unit_price))
         lista.append(eq)
+
+    sistema_payload = session.get("sistema_buffer")
+    if sistema_payload:
+        option = get_system_option(sistema_payload.get("key"))
+        if option:
+            lista.append(
+                build_system_item(
+                    option,
+                    quantity=sistema_payload.get("quantity"),
+                    unit_price=sistema_payload.get("unit_price"),
+                )
+            )
     return lista
 
 
@@ -220,6 +232,9 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
 
     equipamentos_disp = Equipment.query.all()
     form.equipments.choices = [(e.id, e.name) for e in equipamentos_disp]
+    form.sistema_opcao.choices = [("", "-- Selecione --")] + [
+        (opt.key, opt.label) for opt in SYSTEM_OPTIONS
+    ]
 
     usuario_logado = _usuario_atual()
     outros = (User.query
@@ -380,6 +395,7 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
         form=form,
         equipments=equipamentos_disp,
         form_data=request.form,
+        system_options=SYSTEM_OPTIONS_PAYLOAD,
     )
 
 # ===========================================================
@@ -442,6 +458,10 @@ def download_proposta(id):
             e.quantity = 1
         if not hasattr(e, "discount_percent") or e.discount_percent is None:
             e.discount_percent = 0.0
+
+    sistema_item = _system_item_from_proposal(prop)
+    if sistema_item:
+        eqs.append(sistema_item)
 
     return _gerar_e_enviar_pdf(prop, eqs)
 

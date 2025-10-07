@@ -71,6 +71,55 @@
     {{ form.outro_usuario(class="form-select") }}
   </div>
 
+  <!-- ───────────── Sistema Pré-configurado ───────────── -->
+  <div class="form-check form-switch mb-3">
+    {{ form.usar_sistema(class="form-check-input", id="usar_sistema") }}
+    {{ form.usar_sistema.label(class="form-check-label", for="usar_sistema") }}
+  </div>
+
+  <div id="sistemaWrapper" class="border rounded-3 p-3 mb-4 d-none">
+    <div class="row align-items-end">
+      <div class="col-md-6 mb-3">
+        {{ form.sistema_opcao.label(class="form-label") }}
+        {{ form.sistema_opcao(class="form-select", id="sistema_opcao") }}
+      </div>
+      <div class="col-md-3 mb-3">
+        {{ form.sistema_quantidade.label(class="form-label") }}
+        {{ form.sistema_quantidade(class="form-control", id="sistema_quantidade", min="1") }}
+      </div>
+      <div class="col-md-3 mb-3">
+        {{ form.sistema_preco_unitario.label(class="form-label") }}
+        {{ form.sistema_preco_unitario(class="form-control", id="sistema_preco_unitario", placeholder="0,00") }}
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle d-none" id="tabelaSistema">
+        <thead class="table-light">
+          <tr>
+            <th>Descrição</th>
+            <th class="text-center" style="width: 180px;">Imagem</th>
+            <th class="text-center" style="width: 120px;">Quantidade</th>
+            <th class="text-center" style="width: 160px;">Preço Unitário</th>
+            <th class="text-center" style="width: 160px;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td id="sistemaDescricao" class="align-middle"></td>
+            <td class="text-center">
+              <img id="sistemaImagem" src="" alt="" class="img-fluid d-none" style="max-height:140px;">
+            </td>
+            <td class="text-center align-middle"><span id="sistemaQtdPreview">—</span></td>
+            <td class="text-center align-middle"><span id="sistemaUnitPreview">—</span></td>
+            <td class="text-center align-middle"><span id="sistemaTotal">R$ 0,00</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <input type="hidden" name="sistema_preco_total" id="sistema_preco_total" value="0">
+  </div>
+
   <!-- ───────────── Equipamentos ───────────── -->
   <div class="mb-3">
     <label class="form-label" for="equipamento-select">Adicionar Equipamento</label>
