@@ -146,14 +146,6 @@ class Proposal(db.Model):
     email_corpo     = db.Column(db.Text)
     email_cc        = db.Column(db.Text)
 
-    sistema_ativo          = db.Column(db.Boolean, default=False)
-    sistema_nome           = db.Column(db.String(128))
-    sistema_descricao      = db.Column(db.Text)
-    sistema_imagem         = db.Column(db.String(256))
-    sistema_quantidade     = db.Column(db.Integer)
-    sistema_preco_unitario = db.Column(db.Float)
-    sistema_preco_total    = db.Column(db.Float)
-
     data_criacao     = db.Column(db.DateTime, default=datetime.utcnow)
     usuario_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 

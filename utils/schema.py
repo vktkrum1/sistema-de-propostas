@@ -10,8 +10,8 @@ from sqlalchemy.exc import OperationalError
 from models import db
 
 
-def ensure_proposal_columns() -> None:
-    """Ensure legacy databases have the required proposal columns."""
+def ensure_proposal_email_columns() -> None:
+    """Ensure legacy databases have the proposal email columns."""
 
     engine = db.engine
     inspector = inspect(engine)
@@ -23,50 +23,27 @@ def ensure_proposal_columns() -> None:
 
     statements: list[tuple[str, str]] = []
 
-    def ensure(column: str, ddl: str):
-        if column not in existing_columns:
-            statements.append((column, ddl))
-
-    ensure(
-        "enviar_email",
-        "ALTER TABLE proposals ADD COLUMN enviar_email BOOLEAN NOT NULL DEFAULT 0",
-    )
-    ensure(
-        "email_corpo",
-        "ALTER TABLE proposals ADD COLUMN email_corpo TEXT NOT NULL DEFAULT ''",
-    )
-    ensure(
-        "email_cc",
-        "ALTER TABLE proposals ADD COLUMN email_cc TEXT NOT NULL DEFAULT ''",
-    )
-    ensure(
-        "sistema_ativo",
-        "ALTER TABLE proposals ADD COLUMN sistema_ativo BOOLEAN NOT NULL DEFAULT 0",
-    )
-    ensure(
-        "sistema_nome",
-        "ALTER TABLE proposals ADD COLUMN sistema_nome VARCHAR(128)",
-    )
-    ensure(
-        "sistema_descricao",
-        "ALTER TABLE proposals ADD COLUMN sistema_descricao TEXT",
-    )
-    ensure(
-        "sistema_imagem",
-        "ALTER TABLE proposals ADD COLUMN sistema_imagem VARCHAR(256)",
-    )
-    ensure(
-        "sistema_quantidade",
-        "ALTER TABLE proposals ADD COLUMN sistema_quantidade INTEGER",
-    )
-    ensure(
-        "sistema_preco_unitario",
-        "ALTER TABLE proposals ADD COLUMN sistema_preco_unitario FLOAT",
-    )
-    ensure(
-        "sistema_preco_total",
-        "ALTER TABLE proposals ADD COLUMN sistema_preco_total FLOAT",
-    )
+    if "enviar_email" not in existing_columns:
+        statements.append(
+            (
+                "enviar_email",
+                "ALTER TABLE proposals ADD COLUMN enviar_email BOOLEAN NOT NULL DEFAULT 0",
+            )
+        )
+    if "email_corpo" not in existing_columns:
+        statements.append(
+            (
+                "email_corpo",
+                "ALTER TABLE proposals ADD COLUMN email_corpo TEXT NOT NULL DEFAULT ''",
+            )
+        )
+    if "email_cc" not in existing_columns:
+        statements.append(
+            (
+                "email_cc",
+                "ALTER TABLE proposals ADD COLUMN email_cc TEXT NOT NULL DEFAULT ''",
+            )
+        )
 
     if not statements:
         return
@@ -84,7 +61,7 @@ def ensure_proposal_columns() -> None:
 
     if ensured_columns and has_app_context():
         current_app.logger.info(
-            "Garantidas colunas ausentes na tabela proposals: %s",
+            "Garantidas colunas de e-mail na tabela proposals: %s",
             ", ".join(sorted(ensured_columns)),
         )
 

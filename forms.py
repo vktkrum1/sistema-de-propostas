@@ -114,13 +114,6 @@ class ProposalForm(FlaskForm):
     enviar_copia = BooleanField('Copiar outros e-mails?')
     email_cc = TextAreaField('E-mails em cópia', validators=[Optional()])
 
-    usar_sistema = BooleanField('Sistema')
-    sistema_opcao = SelectField('Selecione o sistema', validators=[Optional()], coerce=str)
-    sistema_quantidade = IntegerField(
-        'Quantidade de pessoas', validators=[Optional(), NumberRange(min=1)]
-    )
-    sistema_preco_unitario = StringField('Preço unitário', validators=[Optional()])
-
     submit         = SubmitField('Gerar Proposta')
 
 # =========================

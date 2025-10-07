@@ -6,8 +6,7 @@ from datetime import datetime, timezone
 from email.message import EmailMessage
 import re
 import smtplib
-from typing import Sequence, Optional
-from types import SimpleNamespace
+from typing import Sequence
 
 from flask import (
     current_app, render_template, redirect, url_for, flash,
@@ -24,18 +23,9 @@ from models import (
 from forms import ProposalForm, cnpj_valido
 from gerar_proposta import gerar_proposta_docx
 from utils.timezone import get_local_timezone
-from utils.systems import (
-    iter_system_options,
-    get_system_option,
-    build_system_item,
-    serialize_system_payload,
-    parse_unit_price,
-)
 import dns.resolver
 
 LOCAL_TZ = get_local_timezone()
-SYSTEM_OPTIONS = list(iter_system_options())
-SYSTEM_OPTIONS_PAYLOAD = [opt.to_dict() for opt in SYSTEM_OPTIONS]
 
 # ===========================================================
 #  HELPERS
@@ -100,7 +90,6 @@ def _limpar_buffers_proposta():
         "quantidades_buffer",
         "descontos_buffer",
         "precos_buffer",
-        "sistema_buffer",
     ):
         session.pop(chave, None)
 
@@ -140,21 +129,6 @@ def _gerar_e_enviar_pdf(proposta, equipamentos):
         output,
         download_name=f"{proposta.filename}.pdf",
         as_attachment=False,
-    )
-
-
-def _system_item_from_proposal(proposta: Proposal):
-    if not proposta.sistema_ativo:
-        return None
-
-    return SimpleNamespace(
-        id=f"system:{(proposta.sistema_nome or 'custom').lower()}",
-        name=proposta.sistema_nome or "Sistema",
-        description=proposta.sistema_descricao or proposta.sistema_nome or "Sistema",
-        illustration_path=proposta.sistema_imagem or "",
-        quantity=proposta.sistema_quantidade or 1,
-        unit_price=proposta.sistema_preco_unitario or 0.0,
-        discount_percent=0.0,
     )
 
 
@@ -288,37 +262,6 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
         enviar_copia = form.enviar_copia.data
         cc_raw = (form.email_cc.data or "").strip() if enviar_copia else ""
 
-        sistema_option = None
-        sistema_quantidade: Optional[int] = None
-        sistema_preco_unit: Optional[float] = None
-        sistema_total: Optional[float] = None
-        sistema_payload = None
-
-        if form.usar_sistema.data:
-            sistema_option = get_system_option(form.sistema_opcao.data)
-            if not sistema_option:
-                flash("Selecione um sistema válido.", "danger")
-                return render_template(
-                    "nova_proposta.html",
-                    form=form,
-                    equipments=equipamentos_disp,
-                    form_data=request.form,
-                    system_options=SYSTEM_OPTIONS_PAYLOAD,
-                )
-
-            sistema_quantidade = form.sistema_quantidade.data or sistema_option.default_quantity
-            if sistema_quantidade <= 0:
-                sistema_quantidade = sistema_option.default_quantity or 1
-            sistema_preco_unit = parse_unit_price(form.sistema_preco_unitario.data)
-            if sistema_preco_unit <= 0 and sistema_option.unit_price:
-                sistema_preco_unit = sistema_option.unit_price
-            sistema_total = (sistema_preco_unit or 0.0) * (sistema_quantidade or 0)
-            sistema_payload = serialize_system_payload(
-                sistema_option,
-                sistema_quantidade,
-                sistema_preco_unit or 0.0,
-            )
-
         if enviar_email and not corpo_email:
             flash("Informe o conteúdo do e-mail para enviá-lo ao cliente.", "danger")
             return render_template(
@@ -326,7 +269,6 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
                 form=form,
                 equipments=equipamentos_disp,
                 form_data=request.form,
-                system_options=SYSTEM_OPTIONS_PAYLOAD,
             )
 
         try:
@@ -338,7 +280,6 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
                 form=form,
                 equipments=equipamentos_disp,
                 form_data=request.form,
-                system_options=SYSTEM_OPTIONS_PAYLOAD,
             )
 
         # Usuário responsável
@@ -380,13 +321,6 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
             enviar_email=enviar_email,
             email_corpo=corpo_email if enviar_email else "",
             email_cc=cc_raw if enviar_email else "",
-            sistema_ativo=bool(sistema_option),
-            sistema_nome=sistema_option.label if sistema_option else None,
-            sistema_descricao=sistema_option.description if sistema_option else None,
-            sistema_imagem=sistema_option.image if sistema_option else None,
-            sistema_quantidade=sistema_quantidade,
-            sistema_preco_unitario=sistema_preco_unit,
-            sistema_preco_total=sistema_total,
         )
         db.session.add(proposta)
         db.session.commit()  # garante ID para usar nos buffers
@@ -429,20 +363,6 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
             precos_buffer=precos,
         )
 
-        if sistema_payload:
-            session["sistema_buffer"] = sistema_payload
-        else:
-            session.pop("sistema_buffer", None)
-
-        if sistema_option:
-            eqs.append(
-                build_system_item(
-                    sistema_option,
-                    quantity=sistema_quantidade,
-                    unit_price=sistema_preco_unit,
-                )
-            )
-
         acao = request.form.get("acao")
         if acao == "baixar":
             return redirect(url_for("propostas_bp.baixar_proposta"))
@@ -459,7 +379,6 @@ def nova_proposta():                    # ← NENHUM espaço antes desta linha
                     form=form,
                     equipments=equipamentos_disp,
                     form_data=request.form,
-                    system_options=SYSTEM_OPTIONS_PAYLOAD,
                 )
             _limpar_buffers_proposta()
             flash("Proposta enviada por e-mail com sucesso.", "success")
@@ -579,13 +498,6 @@ def editar_proposta(id):
             "enviar_email",
             "email_corpo",
             "email_cc",
-            "sistema_ativo",
-            "sistema_nome",
-            "sistema_descricao",
-            "sistema_imagem",
-            "sistema_quantidade",
-            "sistema_preco_unitario",
-            "sistema_preco_total",
         ]:
             valor = request.form.get(campo)
             if campo == "servico_type" and valor:
@@ -594,25 +506,9 @@ def editar_proposta(id):
                 valor = ModalidadeType[valor]
             elif campo == "enviar_email":
                 valor = valor in {"1", "true", "on", "yes"}
-            elif campo == "sistema_ativo":
-                valor = valor in {"1", "true", "on", "yes"}
-            elif campo == "sistema_quantidade":
-                valor = int(valor) if valor else None
-            elif campo in {"sistema_preco_unitario", "sistema_preco_total"}:
-                valor = parse_unit_price(valor)
             elif campo in {"email_corpo", "email_cc"} and valor is not None:
                 valor = valor.strip()
             setattr(prop, campo, valor)
-
-        if not prop.sistema_ativo:
-            prop.sistema_nome = None
-            prop.sistema_descricao = None
-            prop.sistema_imagem = None
-            prop.sistema_quantidade = None
-            prop.sistema_preco_unitario = None
-            prop.sistema_preco_total = None
-        elif prop.sistema_quantidade and prop.sistema_preco_unitario is not None:
-            prop.sistema_preco_total = prop.sistema_quantidade * prop.sistema_preco_unitario
 
         # --- Equipamentos: recria vínculos (sem usar .clear()) ---
         for eq_old in prop.equipamentos.all():
@@ -666,13 +562,6 @@ def editar_proposta(id):
         enviar_email=prop.enviar_email,
         email_corpo=prop.email_corpo,
         email_cc=prop.email_cc,
-        sistema_ativo=prop.sistema_ativo,
-        sistema_nome=prop.sistema_nome,
-        sistema_descricao=prop.sistema_descricao,
-        sistema_imagem=prop.sistema_imagem,
-        sistema_quantidade=prop.sistema_quantidade,
-        sistema_preco_unitario=prop.sistema_preco_unitario,
-        sistema_preco_total=prop.sistema_preco_total,
         equipamentos=eq_list,
     )
 
