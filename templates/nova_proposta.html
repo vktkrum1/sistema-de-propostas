@@ -29,6 +29,26 @@
     {{ form.telefone(class="form-control", id="telefone", placeholder="5521999999999") }}
   </div>
 
+  <!-- ───────────── Envio de e-mail ───────────── -->
+  <div class="form-check form-switch mb-3">
+    {{ form.enviar_email(class="form-check-input", id="enviar_email") }}
+    {{ form.enviar_email.label(class="form-check-label", for="enviar_email") }}
+  </div>
+  <div id="emailOptions" class="border rounded-3 p-3 mb-4 d-none">
+    <div class="mb-3">
+      {{ form.email_corpo.label(class="form-label", for="email_corpo") }}
+      {{ form.email_corpo(class="form-control", id="email_corpo", rows="6", placeholder="Escreva aqui a mensagem que acompanhará a proposta") }}
+    </div>
+    <div class="form-check form-switch mb-3">
+      {{ form.enviar_copia(class="form-check-input", id="enviar_copia") }}
+      {{ form.enviar_copia.label(class="form-check-label", for="enviar_copia") }}
+    </div>
+    <div class="mb-3 d-none" id="emailCcWrapper">
+      {{ form.email_cc.label(class="form-label", for="email_cc") }}
+      {{ form.email_cc(class="form-control", id="email_cc", rows="3", placeholder="Informe um e-mail por linha ou separados por vírgula ou ponto e vírgula") }}
+    </div>
+  </div>
+
   <!-- ───────────── Tipo e Modalidade ───────────── -->
   <div class="row">
     <div class="col-md-6 mb-3">
@@ -49,6 +69,55 @@
   <div class="mb-3" id="divOutroUsuario" style="display:none;">
     {{ form.outro_usuario.label(class="form-label") }}
     {{ form.outro_usuario(class="form-select") }}
+  </div>
+
+  <!-- ───────────── Sistema Pré-configurado ───────────── -->
+  <div class="form-check form-switch mb-3">
+    {{ form.usar_sistema(class="form-check-input", id="usar_sistema") }}
+    {{ form.usar_sistema.label(class="form-check-label", for="usar_sistema") }}
+  </div>
+
+  <div id="sistemaWrapper" class="border rounded-3 p-3 mb-4 d-none">
+    <div class="row align-items-end">
+      <div class="col-md-6 mb-3">
+        {{ form.sistema_opcao.label(class="form-label") }}
+        {{ form.sistema_opcao(class="form-select", id="sistema_opcao") }}
+      </div>
+      <div class="col-md-3 mb-3">
+        {{ form.sistema_quantidade.label(class="form-label") }}
+        {{ form.sistema_quantidade(class="form-control", id="sistema_quantidade", min="1") }}
+      </div>
+      <div class="col-md-3 mb-3">
+        {{ form.sistema_preco_unitario.label(class="form-label") }}
+        {{ form.sistema_preco_unitario(class="form-control", id="sistema_preco_unitario", placeholder="0,00") }}
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle d-none" id="tabelaSistema">
+        <thead class="table-light">
+          <tr>
+            <th>Descrição</th>
+            <th class="text-center" style="width: 180px;">Imagem</th>
+            <th class="text-center" style="width: 120px;">Quantidade</th>
+            <th class="text-center" style="width: 160px;">Preço Unitário</th>
+            <th class="text-center" style="width: 160px;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td id="sistemaDescricao" class="align-middle"></td>
+            <td class="text-center">
+              <img id="sistemaImagem" src="" alt="" class="img-fluid d-none" style="max-height:140px;">
+            </td>
+            <td class="text-center align-middle"><span id="sistemaQtdPreview">—</span></td>
+            <td class="text-center align-middle"><span id="sistemaUnitPreview">—</span></td>
+            <td class="text-center align-middle"><span id="sistemaTotal">R$ 0,00</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <input type="hidden" name="sistema_preco_total" id="sistema_preco_total" value="0">
   </div>
 
   <!-- ───────────── Equipamentos ───────────── -->
@@ -83,7 +152,7 @@
 
   <!-- ───────────── Botões ───────────── -->
   <div class="mb-3 d-flex gap-3">
-    <button id="btnBaixar" type="button" class="btn btn-primary">Baixar Proposta</button>
+    <button id="btnAcaoPrimaria" type="button" class="btn btn-primary">Baixar Proposta</button>
     <button id="btnVisualizar" type="submit" name="acao" value="visualizar"
             class="btn btn-secondary" formtarget="_blank">
       Visualizar Proposta
@@ -144,11 +213,141 @@ function normalizeTelefone(inputEl){
 
 // ===================== DOM Ready =====================
 document.addEventListener('DOMContentLoaded',()=>{
+  const formEl=document.getElementById('novaPropostaForm');
   // Outro consultor
   const usarOutro=document.getElementById('usar_outro');
   const divOutro=document.getElementById('divOutroUsuario');
   function toggleOutro(){divOutro.style.display=usarOutro.value==='sim'?'block':'none'}
   usarOutro.addEventListener('change',toggleOutro);toggleOutro();
+
+  // Envio de e-mail
+  const chkEnviarEmail=document.getElementById('enviar_email');
+  const emailOptions=document.getElementById('emailOptions');
+  const chkEnviarCopia=document.getElementById('enviar_copia');
+  const emailCcWrapper=document.getElementById('emailCcWrapper');
+  const emailCc=document.getElementById('email_cc');
+  const btnPrimario=document.getElementById('btnAcaoPrimaria');
+
+  function toggleCc(){
+    const mostrar = chkEnviarEmail.checked && chkEnviarCopia.checked;
+    emailCcWrapper.classList.toggle('d-none', !mostrar);
+  }
+
+  function toggleEmailOptions(){
+    const ativo = chkEnviarEmail.checked;
+    emailOptions.classList.toggle('d-none', !ativo);
+    if(!ativo){
+      chkEnviarCopia.checked = false;
+    }
+    toggleCc();
+    btnPrimario.textContent = ativo ? 'Enviar e-mail com a proposta' : 'Baixar Proposta';
+  }
+
+  chkEnviarEmail.addEventListener('change',()=>{
+    toggleEmailOptions();
+  });
+  chkEnviarCopia.addEventListener('change',toggleCc);
+  toggleEmailOptions();
+  toggleCc();
+
+  // Sistema pré-configurado
+  const chkSistema=document.getElementById('usar_sistema');
+  const sistemaWrapper=document.getElementById('sistemaWrapper');
+  const selectSistema=document.getElementById('sistema_opcao');
+  const tabelaSistema=document.getElementById('tabelaSistema');
+  const descSistema=document.getElementById('sistemaDescricao');
+  const imgSistema=document.getElementById('sistemaImagem');
+  const qtdSistema=document.getElementById('sistema_quantidade');
+  const unitSistema=document.getElementById('sistema_preco_unitario');
+  const totalSistema=document.getElementById('sistemaTotal');
+  const qtdPreview=document.getElementById('sistemaQtdPreview');
+  const unitPreview=document.getElementById('sistemaUnitPreview');
+  const totalInput=document.getElementById('sistema_preco_total');
+  const systemOptions={{ system_options|tojson }};
+
+  function getSystemOption(key){
+    if(!key) return null;
+    return systemOptions.find(opt=>opt.key===key) || null;
+  }
+
+  function resetSistema(){
+    tabelaSistema.classList.add('d-none');
+    descSistema.textContent='';
+    imgSistema.src='';
+    imgSistema.classList.add('d-none');
+    qtdSistema.value='';
+    unitSistema.value='';
+    totalSistema.textContent='R$ 0,00';
+    qtdPreview.textContent='—';
+    unitPreview.textContent='—';
+    totalInput.value='0';
+  }
+
+  function toggleSistema(){
+    const ativo = chkSistema.checked;
+    sistemaWrapper.classList.toggle('d-none', !ativo);
+    if(!ativo){
+      selectSistema.value='';
+      resetSistema();
+    } else if(selectSistema.value){
+      preencherSistema();
+    }
+  }
+
+  function atualizarTotal(){
+    const opt = getSystemOption(selectSistema.value);
+    if(!opt){
+      totalSistema.textContent='R$ 0,00';
+      qtdPreview.textContent='—';
+      unitPreview.textContent='—';
+      totalInput.value='0';
+      return;
+    }
+    const qtd = parseInt(qtdSistema.value,10) || opt.default_quantity || 1;
+    const unit = br2f(unitSistema.value) || opt.unit_price || 0;
+    qtdSistema.value = qtd;
+    const unitFmt = unit ? fmt(unit) : '0,00';
+    const total = unit * qtd;
+    totalSistema.textContent = 'R$ ' + fmt(total);
+    qtdPreview.textContent = qtd;
+    unitPreview.textContent = 'R$ ' + unitFmt;
+    totalInput.value = total.toString();
+  }
+
+  function preencherSistema(){
+    const opt = getSystemOption(selectSistema.value);
+    if(!opt){
+      resetSistema();
+      return;
+    }
+    tabelaSistema.classList.remove('d-none');
+    descSistema.textContent = opt.description;
+    if(opt.image){
+      imgSistema.src = '/' + opt.image.replace(/^\/?/, '');
+      imgSistema.alt = opt.label;
+      imgSistema.classList.remove('d-none');
+    } else {
+      imgSistema.classList.add('d-none');
+    }
+    const qtd = opt.default_quantity || 1;
+    qtdSistema.value = qtd;
+    qtdPreview.textContent = qtd;
+    if(opt.unit_price){
+      unitSistema.value = fmt(opt.unit_price);
+      unitPreview.textContent = 'R$ ' + fmt(opt.unit_price);
+    } else {
+      unitSistema.value = '';
+      unitPreview.textContent = 'R$ 0,00';
+    }
+    atualizarTotal();
+  }
+
+  chkSistema.addEventListener('change', toggleSistema);
+  selectSistema.addEventListener('change', preencherSistema);
+  qtdSistema.addEventListener('input', atualizarTotal);
+  unitSistema.addEventListener('input', atualizarTotal);
+
+  toggleSistema();
 
   // Selects com "Outros"
   document.querySelectorAll('.param-select').forEach(sel=>sel.addEventListener('change',function(){
@@ -239,15 +438,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 
   // Baixar
-  const btnBaixar=document.getElementById('btnBaixar');
   const hidden=document.getElementById('acaoHidden');
-  btnBaixar.addEventListener('click',e=>{
+  btnPrimario.addEventListener('click',e=>{
     e.preventDefault();
-    hidden.value='baixar';
+    hidden.value = chkEnviarEmail.checked ? 'enviar_email' : 'baixar';
     gerarModal.show();
     startProgress();
     shouldReload=true;
-    setTimeout(()=>document.getElementById('novaPropostaForm').submit(),150);
+    setTimeout(()=>formEl.submit(),150);
   });
 
   // Visualizar (abre em nova aba)
